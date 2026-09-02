@@ -1,0 +1,31 @@
+// Inline SVG icons. Kept as strings because every view builds markup with
+// innerHTML, and an icon font or sprite sheet would be another file to cache.
+const PATHS = {
+  home: '<path d="M12 2.6 2.4 11.1l1.3 1.5L5 11.4V21a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1v-9.6l1.3 1.2 1.3-1.5z"/>',
+  walk: '<path d="M13.8 5.4a2 2 0 1 0 0-4 2 2 0 0 0 0 4zM9 8.6 6.2 10 4.8 14l1.9.6 1-2.9 1.9-.9-1.4 6.3-3.5 5 1.6 1.2 4.2-5 1-4.4 2 2.3V22h2v-6.4l-2.3-2.7.7-3.3a5.6 5.6 0 0 0 3.9 2V9.7a3.6 3.6 0 0 1-3-1.7l-1-1.6a1.9 1.9 0 0 0-2.5-.6z"/>',
+  briefcase:
+    '<path d="M10 3h4a2 2 0 0 1 2 2v2h3a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h3V5a2 2 0 0 1 2-2zm0 4h4V5h-4z"/>',
+  people:
+    '<path d="M9 11.5A3.75 3.75 0 1 0 9 4a3.75 3.75 0 0 0 0 7.5zM16.5 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM2 19.2C2 16.2 5.1 14 9 14s7 2.2 7 5.2V21H2zm15.4-4.7c2.7.6 4.6 2.4 4.6 4.7V21h-4.2v-1.8c0-1.8-.5-3.4-1.4-4.6z"/>',
+  target:
+    '<circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="5" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="1.9"/>',
+  door: '<path d="M6.5 2h9A1.5 1.5 0 0 1 17 3.5V21h2v2H5v-2h2V3.5A1.5 1.5 0 0 1 8.5 2zm7 9.1a1.3 1.3 0 1 0 0 2.6 1.3 1.3 0 0 0 0-2.6z"/>',
+  xCircle:
+    '<path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm4 12.6L14.6 16 12 13.4 9.4 16 8 14.6 10.6 12 8 9.4 9.4 8 12 10.6 14.6 8 16 9.4 13.4 12z"/>',
+  checkCircle:
+    '<path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm-1.2 14.5L6.5 12.2 8 10.8l2.8 2.8 5.3-5.3 1.4 1.4z"/>',
+  doc: '<path d="M14 2H7a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7zm.5 5.5V3.6L18.4 7.5zM8 12h8v1.8H8zm0 3.6h8v1.8H8z"/>',
+  clock:
+    '<path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 2.2a7.8 7.8 0 1 1 0 15.6 7.8 7.8 0 0 1 0-15.6z"/><path d="M11 6.4h2v5.2l3.6 2.2-1 1.7-4.6-2.8z"/>',
+  bell: '<path d="M12 22.5a2.5 2.5 0 0 0 2.45-2h-4.9A2.5 2.5 0 0 0 12 22.5zM19.5 16.2v-5.1a7.5 7.5 0 0 0-6-7.35V3a1.5 1.5 0 0 0-3 0v.75a7.5 7.5 0 0 0-6 7.35v5.1L2.7 18v1.5h18.6V18z"/>',
+  dollar:
+    '<path d="M12.9 11.1c-2.2-.6-2.9-1.1-2.9-2 0-1 .9-1.7 2.4-1.7 1.6 0 2.2.8 2.3 1.9h2c-.1-1.6-1.1-3-3-3.4V4h-2.6v1.9c-1.8.4-3.2 1.5-3.2 3.3 0 2.1 1.7 3.1 4.2 3.7 2.2.5 2.7 1.3 2.7 2.1 0 .6-.5 1.6-2.4 1.6-1.8 0-2.6-.8-2.7-1.9h-2c.1 2 1.6 3.2 3.4 3.6V20h2.6v-1.7c1.9-.4 3.3-1.4 3.3-3.4 0-2.6-2.2-3.4-4.1-3.8z"/>',
+  navigate: '<path d="M21.5 2.5 2.8 10.4l8 3.1 3.1 8z"/>',
+  chevron: '<path d="M9 5.5 15.5 12 9 18.5 7.6 17.1 12.7 12 7.6 6.9z"/>',
+};
+
+export function icon(name, size = 20) {
+  return `<svg class="icon" viewBox="0 0 24 24" width="${size}" height="${size}" fill="currentColor" aria-hidden="true">${
+    PATHS[name] || ''
+  }</svg>`;
+}

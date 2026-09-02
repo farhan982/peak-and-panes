@@ -1,7 +1,7 @@
 import * as state from './state.js';
 import * as domain from './domain.js';
 import { renderCanvassing, stopTimer } from './views/canvassing.js';
-import { renderJobs } from './views/jobs.js';
+import { renderJobs, setJobsTab } from './views/jobs.js';
 import { renderCustomers } from './views/customers.js';
 import { renderStub } from './views/stub.js';
 import { buildBottomNav } from './views/nav.js';
@@ -11,6 +11,12 @@ const ROUTES = ['canvassing', 'jobs', 'customers', 'goal'];
 
 function currentRoute() {
   const hash = location.hash.replace(/^#\/?/, '');
+  // #/quotes is a deep link into the Jobs screen's quotes tab, used by the
+  // follow-ups bell in the header.
+  if (hash === 'quotes') {
+    setJobsTab('quotes');
+    return 'jobs';
+  }
   return ROUTES.includes(hash) ? hash : 'dashboard';
 }
 

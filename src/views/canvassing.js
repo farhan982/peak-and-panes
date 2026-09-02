@@ -1,5 +1,7 @@
 import * as state from '../state.js';
 import * as domain from '../domain.js';
+import { icon } from '../icons.js';
+import { buildScreen } from './header.js';
 import {
   openNewTerritoryModal,
   openQuoteModal,
@@ -16,22 +18,21 @@ let currentAddress = '';
 let dismissedTestBlock = 0;
 let timerHandle = null;
 
+// The icon and colour for each outcome tile, in the order they are laid out.
+const TILE_STYLE = {
+  no_answer: { icon: 'door', tone: 'blue' },
+  not_interested: { icon: 'xCircle', tone: 'orange' },
+  quote_given: { icon: 'doc', tone: 'blue' },
+  booked: { icon: 'checkCircle', tone: 'green' },
+  follow_up: { icon: 'clock', tone: 'purple' },
+};
+
 // setInterval rather than requestAnimationFrame: rAF is fully paused in a
 // backgrounded tab, and one tick a second is all the timer needs anyway.
-function startTimer(session, el, rateEl, doorCount) {
+function startTimer(session, el) {
   stopTimer();
   const tick = () => {
-    const ms = domain.elapsedMs(session);
-    el.textContent = domain.formatDuration(ms);
-    const rate = domain.doorsPerHour(doorCount, ms);
-    if (!doorCount) {
-      rateEl.textContent = 'No doors logged yet';
-      return;
-    }
-    // The rate is meaningless in the first minute, so only show it once it is.
-    rateEl.textContent = rate
-      ? `${domain.plural(doorCount, 'door')} · ${rate.toFixed(1)} per hour`
-      : domain.plural(doorCount, 'door');
+    el.textContent = domain.formatDuration(domain.elapsedMs(session));
   };
   tick();
   timerHandle = setInterval(tick, 1000);
@@ -61,19 +62,10 @@ export function renderCanvassing(root) {
 function renderTerritoryPicker(root) {
   const s = state.getState();
   const territories = state.getTerritories();
-
-  const header = document.createElement('div');
-  header.className = 'app-header';
-  header.innerHTML = `
-    <div class="brand">
-      <div class="brand-mark">&#9650;</div>
-      <div>
-        <p class="page-title">Canvassing</p>
-        <p class="page-subtitle">Pick a territory and start knocking.</p>
-      </div>
-    </div>
-  `;
-  root.appendChild(header);
+  const page = buildScreen(root, {
+    title: 'Canvassing',
+    subtitle: 'Pick a territory and start knocking.',
+  });
 
   if (!territories.length) {
     const empty = document.createElement('div');
@@ -83,7 +75,7 @@ function renderTerritoryPicker(root) {
       <p class="card-sub">Add the first neighbourhood you plan to work. Every door you
         log gets attributed to it, so you can compare them later.</p>
     `;
-    root.appendChild(empty);
+    page.appendChild(empty);
   } else {
     // Ranked by revenue per door — the number that actually answers "where
     // should I go today". Territories with no doors yet sort last.
@@ -94,14 +86,14 @@ function renderTerritoryPicker(root) {
     const title = document.createElement('p');
     title.className = 'section-title';
     title.textContent = 'Territories';
-    root.appendChild(title);
+    page.appendChild(title);
 
     ranked.forEach(({ territory, stats }, i) => {
-      const row = document.createElement('button');
-      const isSelected = territory.id === selectedTerritoryId;
-      row.className = 'list-row';
-      if (isSelected) row.style.borderColor = 'var(--blue)';
       const worked = stats.knocked > 0;
+      const isSelected = territory.id === selectedTerritoryId;
+      const row = document.createElement('button');
+      row.className = 'row';
+      if (isSelected) row.style.boxShadow = '0 0 0 2px var(--blue), var(--shadow)';
       row.innerHTML = `
         <div class="rank-badge${worked && i === 0 ? ' top' : ''}">${worked ? i + 1 : '–'}</div>
         <div class="row-main">
@@ -124,14 +116,14 @@ function renderTerritoryPicker(root) {
         selectedTerritoryId = territory.id;
         state.refresh();
       });
-      root.appendChild(row);
+      page.appendChild(row);
     });
   }
 
   const addBtn = document.createElement('button');
   addBtn.className = 'btn-secondary';
   addBtn.textContent = '+ New territory';
-  addBtn.style.marginBottom = '12px';
+  addBtn.style.marginBottom = '10px';
   addBtn.addEventListener('click', () =>
     openNewTerritoryModal((territory) => {
       // createTerritory already re-rendered; this only pre-selects it.
@@ -139,11 +131,11 @@ function renderTerritoryPicker(root) {
       state.refresh();
     })
   );
-  root.appendChild(addBtn);
+  page.appendChild(addBtn);
 
+  const selected = selectedTerritoryId ? state.getTerritory(selectedTerritoryId) : null;
   const start = document.createElement('button');
   start.className = 'btn-primary';
-  const selected = selectedTerritoryId ? state.getTerritory(selectedTerritoryId) : null;
   start.disabled = !selected;
   start.textContent = selected ? `Start session — ${selected.name}` : 'Select a territory to start';
   start.addEventListener('click', () => {
@@ -152,20 +144,19 @@ function renderTerritoryPicker(root) {
     dismissedTestBlock = 0;
     state.startSession(selectedTerritoryId);
   });
-  root.appendChild(start);
+  page.appendChild(start);
 
   const past = state.getSessions().filter((x) => x.endedAt);
   if (past.length) {
     const title = document.createElement('p');
     title.className = 'section-title';
     title.textContent = 'Recent sessions';
-    root.appendChild(title);
+    page.appendChild(title);
 
     past.slice(0, 5).forEach((session) => {
-      const doors = domain.sessionDoors(s, session.id);
-      const stats = domain.doorStats(doors);
+      const stats = domain.doorStats(domain.sessionDoors(s, session.id));
       const row = document.createElement('div');
-      row.className = 'list-row';
+      row.className = 'row';
       row.innerHTML = `
         <div class="row-main">
           <p class="row-title">${esc(session.territoryName)}</p>
@@ -181,7 +172,7 @@ function renderTerritoryPicker(root) {
           )}</p>
         </div>
       `;
-      root.appendChild(row);
+      page.appendChild(row);
     });
   }
 }
@@ -196,49 +187,48 @@ function renderActiveSession(root, session) {
   const stats = domain.doorStats(doors);
   const territory = state.getTerritory(session.territoryId);
 
-  const header = document.createElement('div');
-  header.className = 'app-header';
-  header.innerHTML = `
-    <div class="brand">
-      <div class="brand-mark">&#9650;</div>
-      <div>
-        <p class="page-title">Canvassing</p>
-        <p class="page-subtitle">Session live</p>
-      </div>
-    </div>
-    <button class="link-btn" id="end-session">End</button>
-  `;
-  header.querySelector('#end-session').addEventListener('click', () => {
-    if (!doors.length) {
-      // Nothing was logged, so there is no history worth keeping.
-      state.discardSession(session.id);
-      return;
-    }
-    const snapshot = { ...session, endedAt: new Date().toISOString() };
-    state.endSession(session.id);
-    openSessionSummaryModal(snapshot, doors);
+  const timerChip = document.createElement('div');
+  timerChip.className = 'timer-chip';
+  timerChip.innerHTML = `${icon('clock', 17)}<span id="timer-value">00:00:00</span>`;
+
+  const page = buildScreen(root, {
+    title: 'Canvassing Session',
+    subtitle: esc(session.territoryName),
+    subtitleGold: true,
+    right: timerChip,
   });
-  root.appendChild(header);
 
-  const timer = document.createElement('div');
-  timer.className = 'timer-card';
-  timer.innerHTML = `
-    <p class="timer-territory">${esc(session.territoryName)}</p>
-    <p class="timer-value" id="timer-value">00:00:00</p>
-    <p class="timer-rate" id="timer-rate"></p>
+  const rate = domain.doorsPerHour(stats.knocked, domain.elapsedMs(session));
+  const statCard = document.createElement('div');
+  statCard.className = 'stat-card';
+  statCard.innerHTML = `
+    <div class="stat-cell">
+      <p class="stat-name">Doors Knocked</p>
+      <p class="stat-num">${stats.knocked}</p>
+      <p class="stat-foot grey">${rate ? `${rate.toFixed(0)}/hr` : '—'}</p>
+    </div>
+    <div class="stat-cell">
+      <p class="stat-name">Answered</p>
+      <p class="stat-num">${stats.answered}</p>
+      <p class="stat-foot">${domain.formatPercent(stats.knocked ? stats.answered / stats.knocked : 0)}</p>
+    </div>
+    <div class="stat-cell">
+      <p class="stat-name">Quotes</p>
+      <p class="stat-num">${stats.quotes}</p>
+      <p class="stat-foot">${domain.formatCurrency(stats.quoteValue)}</p>
+    </div>
+    <div class="stat-cell">
+      <p class="stat-name">Jobs</p>
+      <p class="stat-num">${stats.jobs}</p>
+      <p class="stat-foot green">${domain.formatCurrency(stats.revenueBooked)}</p>
+    </div>
+    <div class="stat-cell highlight">
+      <p class="stat-name">Revenue Booked</p>
+      <p class="stat-num small">${domain.formatCurrency(stats.revenueBooked)}</p>
+      <p class="stat-foot grey">Session</p>
+    </div>
   `;
-  root.appendChild(timer);
-
-  const strip = document.createElement('div');
-  strip.className = 'stat-strip';
-  strip.innerHTML = `
-    <div class="stat"><p class="stat-value">${stats.knocked}</p><p class="stat-label">Doors</p></div>
-    <div class="stat"><p class="stat-value">${stats.answered}</p><p class="stat-label">Answered</p></div>
-    <div class="stat"><p class="stat-value blue">${stats.quotes}</p><p class="stat-label">Quotes</p></div>
-    <div class="stat"><p class="stat-value green">${stats.jobs}</p><p class="stat-label">Jobs</p></div>
-    <div class="stat"><p class="stat-value gold">${domain.formatCurrency(stats.revenueBooked)}</p><p class="stat-label">Booked</p></div>
-  `;
-  root.appendChild(strip);
+  page.appendChild(statCard);
 
   const test = domain.territoryTest(doors);
   if (test && test.blockIndex > dismissedTestBlock) {
@@ -260,13 +250,21 @@ function renderActiveSession(root, session) {
       dismissedTestBlock = test.blockIndex;
       banner.remove();
     });
-    root.appendChild(banner);
+    page.appendChild(banner);
   }
 
+  const territoryDoors = territory ? s.doors.filter((d) => d.territoryId === territory.id).length : 0;
   const house = document.createElement('div');
-  house.className = 'house-card';
+  house.className = 'card';
   house.innerHTML = `
-    <p class="house-label">Current house</p>
+    <div class="house-head">
+      <p>Current House</p>
+      ${
+        territory && territory.doorTarget
+          ? `<span class="house-count">${territoryDoors} of ${territory.doorTarget}</span>`
+          : ''
+      }
+    </div>
     <input class="house-input" id="house-address" type="text"
       placeholder="123 Pinecrest Ave" value="${esc(currentAddress)}" />
   `;
@@ -274,57 +272,31 @@ function renderActiveSession(root, session) {
   addressInput.addEventListener('input', () => {
     currentAddress = addressInput.value;
   });
+  page.appendChild(house);
 
-  // Route progress against the territory's door count, if one was set.
-  const territoryDoors = territory ? s.doors.filter((d) => d.territoryId === territory.id).length : 0;
+  // Three tiles then two, matching the design's layout weighting.
+  page.appendChild(buildTiles(['no_answer', 'not_interested', 'quote_given'], 'three', session, addressInput));
+  page.appendChild(buildTiles(['booked', 'follow_up'], 'two', session, addressInput));
+
   if (territory && territory.doorTarget) {
-    const pct = Math.min(1, territoryDoors / territory.doorTarget);
-    const progress = document.createElement('div');
-    progress.innerHTML = `
-      <div class="progress-line">
-        <span>Route progress</span>
-        <span>${territoryDoors} of ${territory.doorTarget} doors</span>
-      </div>
-      <div class="progress-track"><div class="progress-fill"></div></div>
-    `;
-    house.appendChild(progress);
-    const fill = progress.querySelector('.progress-fill');
-    setTimeout(() => {
-      fill.style.width = `${pct * 100}%`;
-    }, 30);
+    page.appendChild(buildRouteProgress(territoryDoors, territory.doorTarget));
   }
-  root.appendChild(house);
-
-  const grid = document.createElement('div');
-  grid.className = 'outcome-grid';
-  domain.OUTCOMES.forEach((outcome) => {
-    const btn = document.createElement('button');
-    btn.className = `outcome-btn ${outcome.tone}` + (outcome.key === 'booked' ? ' wide' : '');
-    btn.textContent = outcome.label;
-    btn.addEventListener('click', () => handleOutcome(outcome.key, session, addressInput.value.trim()));
-    grid.appendChild(btn);
-  });
-  root.appendChild(grid);
 
   if (doors.length) {
     const title = document.createElement('p');
     title.className = 'section-title';
     title.textContent = 'This session';
-    root.appendChild(title);
+    page.appendChild(title);
 
     [...doors]
       .reverse()
       .slice(0, 6)
       .forEach((door, i) => {
+        const tone = { booked: 'green', quote_given: 'blue', follow_up: 'purple', not_interested: 'orange' }[
+          door.outcome
+        ];
         const row = document.createElement('div');
-        row.className = 'list-row';
-        const toneClass = {
-          booked: 'green',
-          quote_given: 'blue',
-          follow_up: 'purple',
-          not_interested: 'orange',
-          no_answer: '',
-        }[door.outcome];
+        row.className = 'row';
         row.innerHTML = `
           <div class="row-main">
             <p class="row-title">${esc(door.address || 'Unnamed door')}</p>
@@ -333,7 +305,7 @@ function renderActiveSession(root, session) {
               minute: '2-digit',
             })}${door.amount ? ` · ${domain.formatCurrency(door.amount)}` : ''}</p>
           </div>
-          <span class="pill ${toneClass}">${domain.outcomeLabel(door.outcome)}</span>
+          <span class="pill ${tone || ''}">${domain.outcomeLabel(door.outcome)}</span>
         `;
         // Undo is offered on the most recent door only — that's the mis-tap
         // you actually need to fix, and it keeps the row from getting busy.
@@ -341,15 +313,72 @@ function renderActiveSession(root, session) {
           const undo = document.createElement('button');
           undo.className = 'link-btn';
           undo.textContent = 'Undo';
-          undo.style.marginLeft = '10px';
+          undo.style.marginLeft = '4px';
           undo.addEventListener('click', () => state.undoDoor(door.id));
           row.appendChild(undo);
         }
-        root.appendChild(row);
+        page.appendChild(row);
       });
   }
 
-  startTimer(session, timer.querySelector('#timer-value'), timer.querySelector('#timer-rate'), stats.knocked);
+  const end = document.createElement('button');
+  end.className = 'btn-secondary';
+  end.style.marginTop = '6px';
+  end.textContent = 'End session';
+  end.addEventListener('click', () => {
+    if (!doors.length) {
+      // Nothing was logged, so there is no history worth keeping.
+      state.discardSession(session.id);
+      return;
+    }
+    const snapshot = { ...session, endedAt: new Date().toISOString() };
+    state.endSession(session.id);
+    openSessionSummaryModal(snapshot, doors);
+  });
+  page.appendChild(end);
+
+  startTimer(session, timerChip.querySelector('#timer-value'));
+}
+
+function buildTiles(keys, size, session, addressInput) {
+  const grid = document.createElement('div');
+  grid.className = `tile-grid ${size}`;
+  keys.forEach((key) => {
+    const style = TILE_STYLE[key];
+    const btn = document.createElement('button');
+    btn.className = 'tile';
+    btn.innerHTML = `<span class="tile-icon ${style.tone}">${icon(style.icon, 24)}</span><span>${domain.outcomeLabel(
+      key
+    )}</span>`;
+    btn.addEventListener('click', () => handleOutcome(key, session, addressInput.value.trim()));
+    grid.appendChild(btn);
+  });
+  return grid;
+}
+
+const STEPS = 8;
+
+function buildRouteProgress(done, total) {
+  const pct = Math.min(1, done / total);
+  const filled = Math.min(STEPS, Math.round(pct * STEPS));
+
+  const card = document.createElement('div');
+  card.className = 'card';
+  let stepper = '';
+  for (let i = 0; i < STEPS; i++) {
+    if (i > 0) stepper += `<div class="step-line${i <= filled ? ' done' : ''}"></div>`;
+    const cls = i < filled ? 'done' : i === filled ? 'current' : '';
+    stepper += `<div class="step-node ${cls}">${i < filled ? icon('checkCircle', 11) : ''}</div>`;
+  }
+  card.innerHTML = `
+    <div class="house-head">
+      <p>Route Progress</p>
+      <span class="house-count">${done} of ${total} doors</span>
+    </div>
+    <div class="stepper">${stepper}</div>
+    <div class="step-labels"><span>Start</span><span>You are here</span><span>Finish</span></div>
+  `;
+  return card;
 }
 
 function handleOutcome(outcome, session, address) {

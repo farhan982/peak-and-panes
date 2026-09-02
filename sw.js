@@ -2,13 +2,14 @@
 // connection the browser always gets current files, so a deploy takes effect
 // immediately. The cache only serves when the network is unreachable.
 // Bump CACHE_VERSION whenever PRECACHE changes.
-const CACHE_VERSION = 'peak-panes-v1';
+const CACHE_VERSION = 'peak-panes-v2';
 
 const PRECACHE = [
   './',
   './index.html',
   './manifest.json',
   './assets/styles.css',
+  './assets/brand/logo.svg',
   './assets/icons/icon-180.png',
   './assets/icons/icon-192.png',
   './assets/icons/icon-512.png',
@@ -16,7 +17,9 @@ const PRECACHE = [
   './src/state.js',
   './src/storage.js',
   './src/domain.js',
+  './src/icons.js',
   './src/views/canvassing.js',
+  './src/views/header.js',
   './src/views/customers.js',
   './src/views/jobs.js',
   './src/views/modals.js',

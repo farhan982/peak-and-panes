@@ -1,28 +1,36 @@
-/* Peak & Panes — deep navy base, royal blue for action, gold for goals.
-   Built for one-handed outdoor use: big targets, high contrast, no hairlines. */
+/* Peak & Panes — navy header band over a light body, gold reserved for the
+   brand and for goal/target moments. Built for one-handed outdoor use: big
+   targets, high contrast, no hairlines. */
 
 :root {
-  --navy-900: #07142b;
-  --navy-850: #0b1c37;
-  --navy-800: #102544;
-  --navy-700: #17325a;
-  --navy-600: #1f4275;
+  --navy: #0d2a52;
+  --navy-deep: #071c36;
+  --navy-mid: #16396b;
+  --ink: #10203a;
+  --muted: #647a99;
+  --dim: #8a9ab0;
+  --line: #e4e9f1;
+  --bg: #f1f3f7;
+  --card: #ffffff;
 
-  --blue: #2f6fed;
-  --blue-bright: #5b9bff;
-  --gold: #f2b134;
-  --green: #22c55e;
-  --orange: #f97316;
-  --red: #ef4444;
+  --blue: #1f5fd0;
+  --blue-deep: #17439b;
+  --blue-soft: #e9f0fd;
+  --gold: #c8971d;
+  --gold-bright: #e2a92a;
+  --gold-soft: #fdf3dd;
+  --green: #16a34a;
+  --green-soft: #e6f6ec;
+  --orange: #ea7317;
+  --orange-soft: #fdefe2;
+  --purple: #6d5bd0;
+  --purple-soft: #eeebfb;
+  --red: #dc2626;
 
-  --text: #eef4ff;
-  --muted: #94a9c9;
-  --dim: #64789a;
-
-  --radius: 16px;
+  --radius: 14px;
   --radius-sm: 10px;
-  --shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
-  --nav-height: 66px;
+  --shadow: 0 1px 2px rgba(16, 32, 58, 0.06), 0 6px 16px rgba(16, 32, 58, 0.06);
+  --nav-height: 68px;
 }
 
 * {
@@ -34,8 +42,8 @@ html,
 body {
   margin: 0;
   padding: 0;
-  background: var(--navy-900);
-  color: var(--text);
+  background: var(--bg);
+  color: var(--ink);
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   font-size: 16px;
   line-height: 1.45;
@@ -45,8 +53,9 @@ body {
 #app {
   max-width: 560px;
   margin: 0 auto;
-  padding: 16px 16px calc(var(--nav-height) + 28px + env(safe-area-inset-bottom, 0px));
+  padding-bottom: calc(var(--nav-height) + 24px + env(safe-area-inset-bottom, 0px));
   min-height: 100vh;
+  background: var(--bg);
 }
 
 button {
@@ -57,65 +66,183 @@ button {
   cursor: pointer;
 }
 
-/* --- Header --------------------------------------------------------------- */
+.icon {
+  display: block;
+}
 
-.app-header {
+/* --- Branded header band -------------------------------------------------- */
+
+.brand-band {
+  background: linear-gradient(178deg, var(--navy-deep) 0%, var(--navy) 62%, var(--navy-mid) 100%);
+  padding: 12px 16px 42px;
+  color: #fff;
+}
+
+.brand-row {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 74px;
+}
+
+.lockup {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 12px;
-  margin: 4px 0 18px;
 }
 
-.brand {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.brand-mark {
-  width: 34px;
-  height: 34px;
-  border-radius: 9px;
-  background: linear-gradient(150deg, var(--blue) 0%, var(--navy-600) 100%);
-  display: grid;
-  place-items: center;
-  font-size: 17px;
-  color: var(--gold);
+.brand-logo {
+  width: 56px;
+  height: 66px;
   flex: none;
 }
 
-.page-title {
+.wordmark-title {
   margin: 0;
-  font-size: 24px;
-  font-weight: 700;
-  letter-spacing: -0.02em;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-variant: small-caps;
+  font-size: 25px;
+  line-height: 1.05;
+  letter-spacing: 0.02em;
+  color: #fff;
 }
 
-.page-subtitle {
+.wordmark-title .amp {
+  color: var(--gold-bright);
+  font-style: italic;
+  font-variant: normal;
+}
+
+.wordmark-sub {
+  margin: 3px 0 0;
+  font-size: 8px;
+  font-weight: 600;
+  letter-spacing: 0.13em;
+  color: rgba(255, 255, 255, 0.82);
+  text-align: center;
+}
+
+.bell {
+  position: absolute;
+  right: 0;
+  top: 12px;
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  color: var(--gold-bright);
+}
+
+.bell-badge {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  border-radius: 99px;
+  background: var(--gold-bright);
+  color: var(--navy-deep);
+  font-size: 11px;
+  font-weight: 800;
+  display: grid;
+  place-items: center;
+}
+
+.band-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.band-title {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  white-space: nowrap;
+}
+
+.band-title .gold {
+  color: var(--gold-bright);
+}
+
+.band-sub {
   margin: 2px 0 0;
   font-size: 14px;
-  color: var(--muted);
+  color: rgba(255, 255, 255, 0.72);
 }
 
-.section-title {
-  margin: 26px 0 10px;
-  font-size: 13px;
+.band-sub.gold {
+  color: var(--gold-bright);
+  font-weight: 600;
+}
+
+.timer-chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 99px;
+  padding: 8px 13px;
+  font-size: 16px;
   font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--dim);
+  font-variant-numeric: tabular-nums;
+  flex: none;
 }
 
-/* --- Cards ---------------------------------------------------------------- */
+.band-action {
+  border: 1px solid var(--gold-bright);
+  color: var(--gold-bright);
+  border-radius: 99px;
+  padding: 8px 15px;
+  font-size: 14px;
+  font-weight: 650;
+  flex: none;
+}
+
+/* Segmented control sitting inside the navy band. */
+.band-seg {
+  display: flex;
+  gap: 6px;
+  margin-top: 16px;
+}
+
+.band-seg button {
+  flex: 1;
+  padding: 10px 6px;
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  font-weight: 650;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.band-seg button.active {
+  background: #fff;
+  color: var(--navy);
+}
+
+/* --- Page body ------------------------------------------------------------ */
+
+/* Pulled up so the first card overlaps the navy band, the way the design does. */
+.page {
+  padding: 0 14px;
+  margin-top: -28px;
+  position: relative;
+  z-index: 1;
+}
 
 .card {
-  background: var(--navy-850);
-  border: 1px solid var(--navy-700);
+  background: var(--card);
   border-radius: var(--radius);
+  box-shadow: var(--shadow);
   padding: 16px;
   margin-bottom: 12px;
-  animation: card-in 0.28s ease both;
+  animation: card-in 0.26s ease both;
 }
 
 @keyframes card-in {
@@ -129,6 +256,11 @@ button {
   }
 }
 
+.card.flush {
+  padding: 0;
+  overflow: hidden;
+}
+
 .card-row {
   display: flex;
   align-items: center;
@@ -138,138 +270,122 @@ button {
 
 .card-title {
   margin: 0;
-  font-size: 17px;
-  font-weight: 650;
+  font-size: 16px;
+  font-weight: 700;
 }
 
 .card-sub {
-  margin: 2px 0 0;
-  font-size: 13px;
+  margin: 3px 0 0;
+  font-size: 13.5px;
   color: var(--muted);
+}
+
+.section-title {
+  margin: 20px 4px 10px;
+  font-size: 12px;
+  font-weight: 750;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--dim);
 }
 
 .muted {
   color: var(--muted);
 }
 
-.empty {
-  text-align: center;
-  padding: 30px 16px;
-  color: var(--muted);
-  font-size: 14px;
-}
+/* --- Live stat card ------------------------------------------------------- */
 
-/* --- Session timer -------------------------------------------------------- */
-
-.timer-card {
-  background: linear-gradient(160deg, var(--navy-800) 0%, var(--navy-850) 100%);
-  border: 1px solid var(--navy-600);
-  border-radius: var(--radius);
-  padding: 18px;
-  margin-bottom: 12px;
-  text-align: center;
-}
-
-.timer-territory {
-  margin: 0;
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--blue-bright);
-}
-
-.timer-value {
-  margin: 6px 0 2px;
-  font-size: 42px;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-  font-variant-numeric: tabular-nums;
-}
-
-.timer-rate {
-  margin: 0;
-  font-size: 13px;
-  color: var(--muted);
-}
-
-/* --- Stat strip ----------------------------------------------------------- */
-
-.stat-strip {
+.stat-card {
   display: grid;
   grid-template-columns: repeat(5, 1fr);
-  gap: 6px;
-  background: var(--navy-850);
-  border: 1px solid var(--navy-700);
+  background: var(--card);
   border-radius: var(--radius);
-  padding: 12px 8px;
+  box-shadow: var(--shadow);
+  overflow: hidden;
   margin-bottom: 12px;
 }
 
-.stat {
+.stat-cell {
+  padding: 12px 4px 13px;
   text-align: center;
   min-width: 0;
+  border-right: 1px solid var(--line);
 }
 
-.stat-value {
+.stat-cell:last-child {
+  border-right: none;
+}
+
+.stat-cell.highlight {
+  background: var(--blue-soft);
+}
+
+.stat-name {
   margin: 0;
-  font-size: 19px;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-}
-
-.stat-value.gold {
-  color: var(--gold);
-}
-.stat-value.green {
-  color: var(--green);
-}
-.stat-value.blue {
-  color: var(--blue-bright);
-}
-
-.stat-label {
-  margin: 1px 0 0;
   font-size: 10px;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--dim);
-  white-space: nowrap;
+  font-weight: 650;
+  color: var(--muted);
+  line-height: 1.25;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.stat-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 10px;
+.stat-num {
+  margin: 3px 0 1px;
+  font-size: 21px;
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+.stat-num.small {
+  font-size: 17px;
+}
+
+.stat-foot {
+  margin: 0;
+  font-size: 10.5px;
+  font-weight: 650;
+  color: var(--blue);
+}
+
+.stat-foot.green {
+  color: var(--green);
+}
+.stat-foot.grey {
+  color: var(--dim);
 }
 
 /* --- Current house -------------------------------------------------------- */
 
-.house-card {
-  background: var(--navy-850);
-  border: 1px solid var(--navy-700);
-  border-radius: var(--radius);
-  padding: 14px 16px 16px;
-  margin-bottom: 12px;
+.house-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
 }
 
-.house-label {
-  margin: 0 0 8px;
-  font-size: 11px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--dim);
+.house-head p {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.house-count {
+  font-size: 13.5px;
+  color: var(--muted);
+  font-weight: 600;
 }
 
 .house-input {
   width: 100%;
-  background: var(--navy-800);
-  border: 1px solid var(--navy-700);
+  background: #f7f9fc;
+  border: 1px solid var(--line);
   border-radius: var(--radius-sm);
-  color: var(--text);
-  font-size: 17px;
-  font-weight: 600;
-  padding: 12px 14px;
+  color: var(--ink);
+  font-size: 18px;
+  font-weight: 650;
+  padding: 13px 14px;
 }
 
 .house-input::placeholder {
@@ -280,95 +396,141 @@ button {
 .house-input:focus {
   outline: none;
   border-color: var(--blue);
+  background: #fff;
 }
 
-/* --- Route progress ------------------------------------------------------- */
+/* --- Outcome tiles -------------------------------------------------------- */
 
-.progress-line {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  font-size: 13px;
-  color: var(--muted);
-  margin: 12px 0 6px;
-}
-
-.progress-track {
-  height: 8px;
-  background: var(--navy-800);
-  border-radius: 99px;
-  overflow: hidden;
-}
-
-.progress-fill {
-  height: 100%;
-  background: linear-gradient(90deg, var(--blue) 0%, var(--blue-bright) 100%);
-  border-radius: 99px;
-  width: 0;
-  transition: width 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
-}
-
-.progress-fill.gold {
-  background: linear-gradient(90deg, #d99a1f 0%, var(--gold) 100%);
-}
-
-/* --- Outcome buttons ------------------------------------------------------ */
-
-.outcome-grid {
+.tile-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
   gap: 10px;
-  margin-bottom: 12px;
+  margin-bottom: 10px;
 }
 
-.outcome-btn {
+.tile-grid.three {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.tile-grid.two {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.tile {
+  background: var(--card);
   border-radius: var(--radius);
-  padding: 20px 12px;
-  font-size: 16px;
+  box-shadow: var(--shadow);
+  padding: 15px 6px 13px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 9px;
+  font-size: 13.5px;
   font-weight: 650;
-  border: 1px solid var(--navy-700);
-  background: var(--navy-850);
-  text-align: center;
-  transition: transform 0.08s ease, filter 0.15s ease;
+  color: var(--ink);
+  transition: transform 0.08s ease, box-shadow 0.15s ease;
 }
 
-.outcome-btn:active {
-  transform: scale(0.97);
+.tile:active {
+  transform: scale(0.96);
 }
 
-.outcome-btn.neutral {
-  background: var(--navy-800);
+.tile-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
 }
-.outcome-btn.warn {
-  border-color: rgba(249, 115, 22, 0.45);
-  color: #ffb27a;
+
+.tile-icon.blue {
+  background: var(--blue-soft);
+  color: var(--blue);
 }
-.outcome-btn.info {
-  border-color: rgba(162, 132, 255, 0.45);
-  color: #c3aeff;
+.tile-icon.orange {
+  background: var(--orange-soft);
+  color: var(--orange);
 }
-.outcome-btn.primary {
+.tile-icon.green {
+  background: var(--green-soft);
+  color: var(--green);
+}
+.tile-icon.purple {
+  background: var(--purple-soft);
+  color: var(--purple);
+}
+.tile-icon.gold {
+  background: var(--gold-soft);
+  color: var(--gold);
+}
+.tile-icon.solid-blue {
   background: var(--blue);
-  border-color: var(--blue);
   color: #fff;
 }
-.outcome-btn.success {
-  background: var(--green);
-  border-color: var(--green);
-  color: #04231a;
+.tile-icon.solid-navy {
+  background: var(--navy);
+  color: #fff;
+}
+.tile-icon.solid-gold {
+  background: var(--gold-bright);
+  color: #fff;
 }
 
-.outcome-btn.wide {
-  grid-column: span 2;
+/* --- Route stepper -------------------------------------------------------- */
+
+.stepper {
+  display: flex;
+  align-items: center;
+  margin: 12px 2px 8px;
+}
+
+.step-node {
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  flex: none;
+  display: grid;
+  place-items: center;
+  background: var(--line);
+}
+
+.step-node.done {
+  background: var(--blue-deep);
+  color: #fff;
+}
+
+.step-node.current {
+  background: #fff;
+  border: 3px solid var(--gold-bright);
+  width: 17px;
+  height: 17px;
+}
+
+.step-line {
+  flex: 1;
+  height: 3px;
+  background: var(--line);
+}
+
+.step-line.done {
+  background: var(--blue-deep);
+}
+
+.step-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11.5px;
+  color: var(--muted);
 }
 
 /* --- Territory test banner ------------------------------------------------ */
 
 .test-banner {
   border-radius: var(--radius);
-  padding: 14px 16px;
+  padding: 14px 15px;
   margin-bottom: 12px;
-  border: 1px solid;
+  border-left: 4px solid;
+  background: var(--card);
+  box-shadow: var(--shadow);
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
@@ -376,22 +538,29 @@ button {
 }
 
 .test-banner.good {
-  background: rgba(34, 197, 94, 0.12);
-  border-color: rgba(34, 197, 94, 0.45);
+  border-left-color: var(--green);
 }
 .test-banner.okay {
-  background: rgba(242, 177, 52, 0.12);
-  border-color: rgba(242, 177, 52, 0.45);
+  border-left-color: var(--gold-bright);
 }
 .test-banner.low {
-  background: rgba(249, 115, 22, 0.14);
-  border-color: rgba(249, 115, 22, 0.5);
+  border-left-color: var(--orange);
 }
 
 .test-title {
   margin: 0;
   font-size: 15px;
   font-weight: 700;
+}
+
+.test-banner.good .test-title {
+  color: var(--green);
+}
+.test-banner.okay .test-title {
+  color: var(--gold);
+}
+.test-banner.low .test-title {
+  color: var(--orange);
 }
 
 .test-body {
@@ -403,8 +572,8 @@ button {
 .test-dismiss {
   font-size: 22px;
   line-height: 1;
-  color: var(--muted);
-  padding: 0 4px;
+  color: var(--dim);
+  padding: 0 2px;
   flex: none;
 }
 
@@ -418,7 +587,7 @@ button {
   border-radius: var(--radius);
   padding: 15px;
   font-size: 16px;
-  font-weight: 650;
+  font-weight: 700;
   text-align: center;
   transition: filter 0.15s ease, transform 0.08s ease;
 }
@@ -426,18 +595,19 @@ button {
 .btn-primary {
   background: var(--blue);
   color: #fff;
+  box-shadow: 0 4px 12px rgba(31, 95, 208, 0.24);
 }
 
 .btn-secondary {
-  background: var(--navy-800);
-  color: var(--text);
-  border: 1px solid var(--navy-700);
+  background: var(--card);
+  color: var(--ink);
+  box-shadow: var(--shadow);
 }
 
 .btn-danger {
-  background: rgba(239, 68, 68, 0.14);
-  color: #ff9b9b;
-  border: 1px solid rgba(239, 68, 68, 0.4);
+  background: var(--card);
+  color: var(--red);
+  box-shadow: var(--shadow);
 }
 
 .btn-primary:active,
@@ -447,41 +617,36 @@ button {
 }
 
 .btn-primary:disabled {
-  background: var(--navy-700);
-  color: var(--dim);
-}
-
-.btn-row {
-  display: flex;
-  gap: 10px;
-}
-
-.btn-row > * {
-  flex: 1;
+  background: #c3cfe2;
+  color: #fff;
+  box-shadow: none;
 }
 
 .link-btn {
-  color: var(--blue-bright);
+  color: var(--blue);
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 700;
   padding: 4px 0;
 }
 
-/* --- Lists ---------------------------------------------------------------- */
+.link-btn.on-navy {
+  color: var(--gold-bright);
+}
 
-.list-row {
+/* --- Rows ----------------------------------------------------------------- */
+
+.row {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 12px;
-  padding: 13px 14px;
-  background: var(--navy-850);
-  border: 1px solid var(--navy-700);
-  border-radius: var(--radius-sm);
-  margin-bottom: 8px;
+  padding: 14px;
+  background: var(--card);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  margin-bottom: 10px;
   width: 100%;
   text-align: left;
-  animation: card-in 0.24s ease both;
+  animation: card-in 0.22s ease both;
 }
 
 .row-main {
@@ -491,8 +656,8 @@ button {
 
 .row-title {
   margin: 0;
-  font-size: 15px;
-  font-weight: 600;
+  font-size: 15.5px;
+  font-weight: 700;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -504,6 +669,11 @@ button {
   color: var(--muted);
 }
 
+.row-sub.link {
+  color: var(--blue);
+  font-weight: 600;
+}
+
 .row-right {
   text-align: right;
   flex: none;
@@ -511,86 +681,77 @@ button {
 
 .row-amount {
   margin: 0;
-  font-size: 15px;
-  font-weight: 700;
+  font-size: 16px;
+  font-weight: 750;
   font-variant-numeric: tabular-nums;
+}
+
+.status-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--blue);
+  flex: none;
+}
+
+.status-dot.hollow {
+  background: #fff;
+  border: 2px solid var(--line);
 }
 
 .pill {
   display: inline-block;
   font-size: 11px;
   font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  padding: 3px 8px;
+  padding: 3px 9px;
   border-radius: 99px;
-  background: var(--navy-700);
+  background: #eef2f7;
   color: var(--muted);
+  margin-top: 4px;
 }
 
-.pill.green {
-  background: rgba(34, 197, 94, 0.16);
-  color: #6ee7a8;
-}
 .pill.blue {
-  background: rgba(47, 111, 237, 0.2);
-  color: var(--blue-bright);
+  background: var(--blue-soft);
+  color: var(--blue);
+}
+.pill.green {
+  background: var(--green-soft);
+  color: var(--green);
 }
 .pill.gold {
-  background: rgba(242, 177, 52, 0.16);
+  background: var(--gold-soft);
   color: var(--gold);
 }
 .pill.orange {
-  background: rgba(249, 115, 22, 0.16);
-  color: #ffb27a;
+  background: var(--orange-soft);
+  color: var(--orange);
 }
 .pill.purple {
-  background: rgba(162, 132, 255, 0.18);
-  color: #c3aeff;
+  background: var(--purple-soft);
+  color: var(--purple);
 }
 
 .rank-badge {
   width: 26px;
   height: 26px;
-  border-radius: 8px;
-  background: var(--navy-700);
+  border-radius: 50%;
+  background: #eef2f7;
   color: var(--muted);
   display: grid;
   place-items: center;
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 750;
   flex: none;
 }
 
 .rank-badge.top {
-  background: rgba(242, 177, 52, 0.18);
-  color: var(--gold);
-}
-
-/* --- Segmented control ---------------------------------------------------- */
-
-.segmented {
-  display: flex;
-  background: var(--navy-850);
-  border: 1px solid var(--navy-700);
-  border-radius: var(--radius-sm);
-  padding: 4px;
-  gap: 4px;
-  margin-bottom: 14px;
-}
-
-.segmented button {
-  flex: 1;
-  padding: 9px 6px;
-  border-radius: 7px;
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--muted);
-}
-
-.segmented button.active {
-  background: var(--blue);
+  background: var(--gold-bright);
   color: #fff;
+}
+
+.chevron {
+  color: #c3cfe2;
+  flex: none;
 }
 
 /* --- Forms ---------------------------------------------------------------- */
@@ -602,7 +763,7 @@ button {
 .field label {
   display: block;
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 650;
   color: var(--muted);
   margin-bottom: 6px;
 }
@@ -617,14 +778,14 @@ button {
   font-family: inherit;
   padding: 12px 14px;
   border-radius: var(--radius-sm);
-  background: var(--navy-800);
-  border: 1px solid var(--navy-700);
-  color: var(--text);
+  background: #f7f9fc;
+  border: 1px solid var(--line);
+  color: var(--ink);
   appearance: none;
 }
 
 .field textarea {
-  min-height: 72px;
+  min-height: 70px;
   resize: vertical;
 }
 
@@ -633,6 +794,7 @@ button {
 .field textarea:focus {
   outline: none;
   border-color: var(--blue);
+  background: #fff;
 }
 
 .field input::placeholder,
@@ -643,30 +805,27 @@ button {
 .input-prefix {
   display: flex;
   align-items: center;
-  background: var(--navy-800);
-  border: 1px solid var(--navy-700);
+  background: #f7f9fc;
+  border: 1px solid var(--line);
   border-radius: var(--radius-sm);
   padding-left: 14px;
 }
 
 .input-prefix:focus-within {
   border-color: var(--blue);
+  background: #fff;
 }
 
 .prefix-symbol {
   color: var(--muted);
   font-size: 16px;
-  font-weight: 600;
+  font-weight: 650;
 }
 
 .input-prefix input {
   background: none;
   border: none;
   padding-left: 6px;
-}
-
-.input-prefix input:focus {
-  border: none;
 }
 
 .field-row {
@@ -688,10 +847,10 @@ button {
 .chip {
   padding: 9px 13px;
   border-radius: 99px;
-  background: var(--navy-800);
-  border: 1px solid var(--navy-700);
+  background: #f2f5fa;
+  border: 1px solid var(--line);
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 650;
   color: var(--muted);
 }
 
@@ -706,7 +865,7 @@ button {
 .overlay {
   position: fixed;
   inset: 0;
-  background: rgba(3, 8, 18, 0.72);
+  background: rgba(9, 22, 43, 0.45);
   display: flex;
   align-items: flex-end;
   justify-content: center;
@@ -726,14 +885,12 @@ button {
 .sheet {
   width: 100%;
   max-width: 560px;
-  background: var(--navy-850);
+  background: var(--card);
   border-top-left-radius: 22px;
   border-top-right-radius: 22px;
-  border-top: 1px solid var(--navy-700);
   padding: 20px 18px calc(24px + env(safe-area-inset-bottom, 0px));
   max-height: 88vh;
   overflow-y: auto;
-  box-shadow: var(--shadow);
   animation: sheet-up 0.24s cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
 
@@ -749,7 +906,7 @@ button {
 .sheet-title {
   margin: 0 0 4px;
   font-size: 20px;
-  font-weight: 700;
+  font-weight: 750;
 }
 
 .sheet-sub {
@@ -767,11 +924,10 @@ button {
   right: 0;
   height: calc(var(--nav-height) + env(safe-area-inset-bottom, 0px));
   padding-bottom: env(safe-area-inset-bottom, 0px);
-  background: rgba(7, 20, 43, 0.94);
+  background: rgba(255, 255, 255, 0.96);
   backdrop-filter: blur(12px);
-  border-top: 1px solid var(--navy-700);
+  border-top: 1px solid var(--line);
   display: flex;
-  align-items: stretch;
   z-index: 40;
 }
 
@@ -788,24 +944,27 @@ button {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 3px;
+  gap: 4px;
   font-size: 10.5px;
-  font-weight: 600;
+  font-weight: 650;
   color: var(--dim);
   padding: 0 2px;
 }
 
 .nav-item.active {
-  color: var(--blue-bright);
+  color: var(--blue);
 }
 
-.nav-icon {
-  font-size: 18px;
-  line-height: 1;
-}
-
-.nav-item.live .nav-icon {
+.nav-item.live {
   color: var(--green);
+}
+
+.nav-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--green);
+  margin: 8px 0 4px;
   animation: pulse 1.8s ease-in-out infinite;
 }
 
@@ -815,7 +974,7 @@ button {
     opacity: 1;
   }
   50% {
-    opacity: 0.35;
+    opacity: 0.3;
   }
 }
 
@@ -823,17 +982,23 @@ button {
 
 .stub {
   text-align: center;
-  padding: 48px 20px;
+  padding: 34px 20px 26px;
 }
 
 .stub-icon {
-  font-size: 40px;
-  color: var(--navy-600);
+  width: 62px;
+  height: 62px;
+  border-radius: 50%;
+  background: var(--blue-soft);
+  color: var(--blue);
+  display: grid;
+  place-items: center;
+  margin: 0 auto 14px;
 }
 
 .stub h2 {
-  margin: 12px 0 6px;
-  font-size: 19px;
+  margin: 0 0 6px;
+  font-size: 18px;
 }
 
 .stub p {
@@ -846,15 +1011,14 @@ button {
 /* --- Hover (pointer devices only) ----------------------------------------- */
 
 @media (hover: hover) {
-  .list-row:hover,
-  .card.interactive:hover {
-    border-color: var(--navy-600);
+  .row:hover,
+  .tile:hover {
+    box-shadow: 0 2px 4px rgba(16, 32, 58, 0.08), 0 10px 22px rgba(16, 32, 58, 0.1);
   }
   .btn-primary:hover,
   .btn-secondary:hover,
-  .btn-danger:hover,
-  .outcome-btn:hover {
-    filter: brightness(1.12);
+  .btn-danger:hover {
+    filter: brightness(0.98);
   }
   .nav-item:hover {
     color: var(--muted);

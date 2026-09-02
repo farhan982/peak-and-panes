@@ -54,6 +54,9 @@ and every customer with their status and booked value.
     sw.js               service worker (network-first, cache fallback)
     serve.py            dev server that sends no-cache headers
     assets/styles.css   all styling; navy/blue/gold tokens at the top
+    assets/brand/       the shield logo (see below)
+    src/icons.js        inline SVG icons
+    src/views/header.js the shared navy band every screen starts with
     src/storage.js      localStorage read/write, ids
     src/state.js        the mutable store + every write action
     src/domain.js       pure calculations: stats, rates, the 20-door test
@@ -63,6 +66,13 @@ and every customer with their status and booked value.
 Data model: flat top-level arrays (`territories`, `sessions`, `doors`,
 `customers`, `quotes`, `jobs`). Doors point at a session and a territory;
 quotes and jobs point at a customer.
+
+## The logo
+
+`assets/brand/logo.svg` is a **placeholder recreation** of the Peak & Panes
+shield, drawn to match the real mark. Nothing else in the app references the
+logo, so dropping the real artwork in at that path (keeping roughly 5:6
+proportions) updates every screen at once.
 
 ## iOS notes
 

@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<!-- Deliberately NOT viewport-fit=cover, and NOT black-translucent. That pair
+     makes iOS render the installed app underneath the status bar, which then
+     has to be corrected with env(safe-area-inset-*) — and those insets report
+     zero in standalone mode on some devices, hiding the heading behind the
+     Dynamic Island. Letting iOS reserve the bar cannot silently fail. -->
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#07142b">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="Peak &amp; Panes">
+<!-- Relative paths so the app works from a subpath (GitHub Pages) too. -->
+<link rel="apple-touch-icon" href="./assets/icons/icon-180.png">
+<link rel="icon" href="./assets/icons/icon-192.png">
+<link rel="manifest" href="./manifest.json">
+<title>Peak &amp; Panes</title>
+<link rel="stylesheet" href="./assets/styles.css">
+</head>
+<body>
+<div id="app"></div>
+<script type="module" src="./src/app.js"></script>
+</body>
+</html>

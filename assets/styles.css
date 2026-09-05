@@ -83,44 +83,14 @@ button {
   display: flex;
   justify-content: center;
   align-items: center;
-  min-height: 74px;
+  min-height: 96px;
 }
 
-.lockup {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
+/* The badge carries the wordmark and tagline itself, so it stands alone. */
 .brand-logo {
-  width: 56px;
-  height: 66px;
+  width: 108px;
+  height: 108px;
   flex: none;
-}
-
-.wordmark-title {
-  margin: 0;
-  font-family: Georgia, 'Times New Roman', serif;
-  font-variant: small-caps;
-  font-size: 25px;
-  line-height: 1.05;
-  letter-spacing: 0.02em;
-  color: #fff;
-}
-
-.wordmark-title .amp {
-  color: var(--gold-bright);
-  font-style: italic;
-  font-variant: normal;
-}
-
-.wordmark-sub {
-  margin: 3px 0 0;
-  font-size: 8px;
-  font-weight: 600;
-  letter-spacing: 0.13em;
-  color: rgba(255, 255, 255, 0.82);
-  text-align: center;
 }
 
 .bell {

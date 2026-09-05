@@ -1,34 +1,71 @@
-<!-- Placeholder recreation of the Peak & Panes shield. Swap this file for the
-     real logo artwork and every screen picks it up — nothing else references
-     the mark. Keep the same viewBox proportions (roughly 5:6).
-     Each white element sits on a slightly larger navy shape so the pane and
-     squeegee stay legible where they cross the white mountains. -->
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 118" width="100" height="118">
+<!-- Peak & Panes badge, redrawn as vector from the supplied artwork: navy
+     disc inside a gold ring, roof + four-pane window, squeegee left, brush
+     right, wordmark on the ribbon, tagline below.
+     This is a recreation, not the original file. To use the real artwork,
+     drop it in beside this as logo.png and point header.js at it — nothing
+     else in the app references the mark. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1240 1240" width="1240" height="1240">
   <defs>
-    <clipPath id="shield">
-      <path d="M50 6 94 19.5v41C94 89 73 104.5 50 112 27 104.5 6 89 6 60.5v-41z"/>
-    </clipPath>
+    <style>
+      .wm { font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+            font-weight: 900; }
+      .tag { font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+             font-weight: 700; letter-spacing: 7px; }
+    </style>
   </defs>
 
-  <path d="M50 6 94 19.5v41C94 89 73 104.5 50 112 27 104.5 6 89 6 60.5v-41z"
-        fill="#0b2242" stroke="#c8971d" stroke-width="5.5" stroke-linejoin="round"/>
+  <!-- Rings: navy edge, white gap, gold, white gap, navy field -->
+  <circle cx="620" cy="612" r="592" fill="#ffffff" stroke="#1a3c66" stroke-width="14"/>
+  <circle cx="620" cy="612" r="548" fill="none" stroke="#f2a71b" stroke-width="20"/>
+  <circle cx="620" cy="612" r="512" fill="#1a3c66"/>
 
-  <g clip-path="url(#shield)">
-    <!-- Mountain range -->
-    <path d="M6 66 30 33l13 16 13-17 32 34v10H6z" fill="#ffffff"/>
-    <path d="M30 33l13 16-5 6-13-16zM56 32l12 13-6 7-11-13z" fill="#c2d2e4"/>
-    <path d="M30 33l5.5 6.8L30 42.5l-5.5-2.7zM56 32l5 6.2-5 2.4-5-2.4z" fill="#f5f9ff"/>
+  <!-- House: chimney first so the roof line crosses in front of it -->
+  <rect x="772" y="252" width="54" height="108" fill="#ffffff"/>
+  <path d="M352 376 628 190 904 376" fill="none" stroke="#ffffff" stroke-width="38"
+        stroke-linejoin="miter" stroke-linecap="square"/>
 
-    <!-- Squeegee: navy relief first, then the white handle and blade -->
-    <rect x="43.5" y="72" width="13" height="24" fill="#0b2242"/>
-    <rect x="27" y="89" width="46" height="13" rx="6.5" fill="#0b2242"/>
-    <rect x="46.5" y="74" width="7" height="19" fill="#ffffff"/>
-    <rect x="29.5" y="91.5" width="41" height="8" rx="4" fill="#ffffff"/>
+  <!-- Four-pane window -->
+  <rect x="546" y="374" width="76" height="82" fill="#ffffff"/>
+  <rect x="638" y="374" width="76" height="82" fill="#ffffff"/>
+  <rect x="546" y="472" width="76" height="82" fill="#ffffff"/>
+  <rect x="638" y="472" width="76" height="82" fill="#ffffff"/>
 
-    <!-- Window pane, lifted off the mountains by a navy border -->
-    <rect x="33" y="48" width="34" height="30" rx="4" fill="#0b2242"/>
-    <rect x="36.2" y="51.2" width="27.6" height="23.6" rx="1.6" fill="#ffffff"/>
-    <rect x="48.5" y="51.2" width="3" height="23.6" fill="#0b2242"/>
-    <rect x="36.2" y="61.5" width="27.6" height="3" fill="#0b2242"/>
+  <!-- Squeegee -->
+  <g transform="rotate(-11 350 445)">
+    <rect x="196" y="414" width="312" height="56" rx="16" fill="#ffffff"
+          stroke="#1a3c66" stroke-width="9"/>
+    <rect x="222" y="436" width="258" height="9" fill="#1a3c66"/>
+    <rect x="326" y="468" width="48" height="66" fill="#ffffff" stroke="#1a3c66" stroke-width="9"/>
+    <rect x="316" y="524" width="68" height="118" rx="22" fill="#ffffff"
+          stroke="#1a3c66" stroke-width="9"/>
   </g>
+  <path d="M262 486 306 470 296 522 254 534z" fill="#ffffff" stroke="#1a3c66" stroke-width="7"/>
+
+  <!-- Paint brush -->
+  <g transform="rotate(21 930 450)">
+    <rect x="866" y="336" width="152" height="96" rx="7" fill="#f2a71b"
+          stroke="#1a3c66" stroke-width="9"/>
+    <path d="M898 340v88M930 340v88M962 340v88M994 340v88" stroke="#1a3c66" stroke-width="7"/>
+    <rect x="854" y="428" width="176" height="52" rx="6" fill="#ffffff"
+          stroke="#1a3c66" stroke-width="9"/>
+    <path d="M854 448h176M854 466h176" stroke="#1a3c66" stroke-width="8"/>
+    <path d="M886 480h112l-18 158a38 38 0 0 1-76 0z" fill="#ffffff"
+          stroke="#1a3c66" stroke-width="9"/>
+    <circle cx="942" cy="612" r="11" fill="#1a3c66"/>
+  </g>
+
+  <!-- Ribbon -->
+  <rect x="18" y="588" width="1204" height="276" rx="16" fill="#1a3c66"
+        stroke="#ffffff" stroke-width="12"/>
+  <rect x="46" y="616" width="1148" height="220" rx="8" fill="none"
+        stroke="#ffffff" stroke-width="10"/>
+  <text class="wm" x="620" y="790" text-anchor="middle" font-size="152"
+        textLength="1058" lengthAdjust="spacingAndGlyphs" fill="#ffffff">PEAK <tspan fill="#f2a71b">&amp;</tspan> PANES</text>
+
+  <!-- Tagline -->
+  <path d="M292 942h74M874 942h74" stroke="#f2a71b" stroke-width="12" stroke-linecap="round"/>
+  <text class="tag" x="620" y="962" text-anchor="middle" font-size="62"
+        textLength="486" lengthAdjust="spacingAndGlyphs" fill="#ffffff">CLEAR VIEWS.</text>
+  <text class="tag" x="620" y="1046" text-anchor="middle" font-size="62"
+        textLength="560" lengthAdjust="spacingAndGlyphs" fill="#ffffff">TRUSTED CARE.</text>
 </svg>

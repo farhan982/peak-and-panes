@@ -18,14 +18,7 @@ export function buildScreen(root, { title, subtitle, subtitleGold, right, seg } 
   band.className = 'brand-band';
   band.innerHTML = `
     <div class="brand-row">
-      <div class="lockup">
-        <img class="brand-logo" src="./assets/brand/logo.svg" alt="" />
-        <div>
-          <p class="wordmark-title">Peak <span class="amp">&amp;</span> Panes</p>
-          <p class="wordmark-sub">WINDOW CLEANING &bull; EAVESTROUGH</p>
-          <p class="wordmark-sub">PAINTING &bull; ODD JOBS</p>
-        </div>
-      </div>
+      <img class="brand-logo" src="./assets/brand/logo.svg" alt="Peak &amp; Panes" />
       <button class="bell" id="bell" aria-label="${due} follow-up${due === 1 ? '' : 's'} due">
         ${icon('bell', 22)}
         ${due ? `<span class="bell-badge">${due}</span>` : ''}

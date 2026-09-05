@@ -69,10 +69,21 @@ quotes and jobs point at a customer.
 
 ## The logo
 
-`assets/brand/logo.svg` is a **placeholder recreation** of the Peak & Panes
-shield, drawn to match the real mark. Nothing else in the app references the
-logo, so dropping the real artwork in at that path (keeping roughly 5:6
-proportions) updates every screen at once.
+`assets/brand/logo.svg` is a **vector recreation** of the Peak & Panes badge —
+navy disc in a gold ring, roof and four-pane window, squeegee left, brush
+right, wordmark on the ribbon, tagline below. It is redrawn, not the original
+file.
+
+To use the real artwork instead, save it as `assets/brand/logo.png` and change
+the one `<img src>` in `src/views/header.js`. Nothing else references the mark.
+
+The wordmark and tagline use `textLength` with `lengthAdjust="spacingAndGlyphs"`
+so they stay pinned inside the ribbon on devices whose font metrics differ
+(Arial Black does not exist on iOS). Don't remove those attributes.
+
+The app icons in `assets/icons/` are a **simplified** version of the badge —
+rings plus the roof and window, no text, because the wordmark is illegible at
+180px. Regenerate them with the PIL snippet in the git history of this repo.
 
 ## iOS notes
 

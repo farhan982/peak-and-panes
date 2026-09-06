@@ -93,7 +93,8 @@ button {
   flex: none;
 }
 
-.bell {
+.bell,
+.gear {
   position: absolute;
   right: 0;
   top: 12px;
@@ -102,6 +103,12 @@ button {
   display: grid;
   place-items: center;
   color: var(--gold-bright);
+}
+
+.gear {
+  right: auto;
+  left: 0;
+  color: rgba(255, 255, 255, 0.6);
 }
 
 .bell-badge {
@@ -805,6 +812,11 @@ button {
 
 .field-row > * {
   flex: 1;
+  min-width: 0;
+}
+
+.field-row input {
+  min-width: 0;
 }
 
 .chip-row {

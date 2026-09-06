@@ -2,7 +2,7 @@ import * as state from '../state.js';
 import * as domain from '../domain.js';
 import { icon } from '../icons.js';
 import { buildScreen } from './header.js';
-import { esc } from './modals.js';
+import { esc, openJobSheet, openQuoteSheet } from './modals.js';
 
 // Filter survives the app-wide re-render, same reason as the canvassing state.
 let tab = 'upcoming';
@@ -58,20 +58,41 @@ function renderJobList(page, which) {
     return;
   }
 
-  page.appendChild(
-    summaryCard(
-      domain.plural(jobs.length, 'job'),
-      which === 'completed' ? 'Completed' : 'Scheduled',
-      jobs.reduce((sum, j) => sum + (j.amount || 0), 0),
-      'gold'
-    )
-  );
+  if (which === 'completed') {
+    const collected = domain.revenueCollected(jobs);
+    const owed = domain.revenueBooked(jobs) - collected;
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.innerHTML = `
+      <div class="card-row">
+        <div>
+          <p class="card-title">${domain.plural(jobs.length, 'job')} completed</p>
+          <p class="card-sub">${owed ? `${domain.formatCurrency(owed)} still owed` : 'All paid'}</p>
+        </div>
+        <div style="text-align:right">
+          <p class="row-amount" style="color: var(--green); font-size: 22px">${domain.formatCurrency(collected)}</p>
+          <p class="card-sub">collected</p>
+        </div>
+      </div>
+    `;
+    page.appendChild(card);
+  } else {
+    page.appendChild(
+      summaryCard(
+        domain.plural(jobs.length, 'job'),
+        'Scheduled',
+        domain.revenueBooked(jobs),
+        'gold'
+      )
+    );
+  }
 
   jobs.forEach((job) => {
     const customer = state.getCustomer(job.customerId);
     const done = job.status === 'completed';
-    const row = document.createElement('div');
+    const row = document.createElement('button');
     row.className = 'row';
+    row.addEventListener('click', () => openJobSheet(job.id));
     row.innerHTML = `
       <span class="status-dot${done ? ' hollow' : ''}"></span>
       <div class="row-main">
@@ -81,7 +102,9 @@ function renderJobList(page, which) {
       </div>
       <div class="row-right">
         <p class="row-amount">${domain.formatCurrency(job.amount)}</p>
-        <span class="pill ${done ? 'green' : 'blue'}">${done ? 'Completed' : 'Scheduled'}</span>
+        <span class="pill ${done ? (job.paymentReceived ? 'green' : 'orange') : 'blue'}">${
+          done ? (job.paymentReceived ? 'Paid' : 'Unpaid') : 'Scheduled'
+        }</span>
         <p class="row-sub">${job.scheduledAt ? domain.formatDateTime(job.scheduledAt) : 'Unscheduled'}</p>
       </div>
     `;
@@ -115,8 +138,9 @@ function renderQuotes(page) {
   quotes.forEach((quote) => {
     const customer = state.getCustomer(quote.customerId);
     const due = quote.followUpDate && quote.followUpDate <= today;
-    const row = document.createElement('div');
+    const row = document.createElement('button');
     row.className = 'row';
+    row.addEventListener('click', () => openQuoteSheet(quote.id));
     row.innerHTML = `
       <span class="status-dot${due ? '' : ' hollow'}"></span>
       <div class="row-main">

@@ -297,3 +297,179 @@ export function openSessionSummaryModal(session, doors) {
     sheet.querySelector('#s-done').addEventListener('click', close);
   });
 }
+
+// --- Job detail ------------------------------------------------------------
+
+function detailLine(label, value) {
+  return `<div class="card-row" style="padding:7px 0"><span class="muted">${label}</span><strong>${value}</strong></div>`;
+}
+
+// tel: and a maps query both work without an API key, and open the native app
+// on a phone. Nothing here needs a network round trip of our own.
+function linkActions(customer) {
+  const phone = customer && customer.phone ? customer.phone.replace(/[^\d+]/g, '') : '';
+  const address = customer && customer.address ? customer.address : '';
+  if (!phone && !address) return '';
+  return `<div class="btn-row" style="margin-bottom:12px">
+    ${phone ? `<a class="btn-secondary" href="tel:${phone}">Call</a>` : ''}
+    ${address ? `<a class="btn-secondary" href="https://maps.apple.com/?q=${encodeURIComponent(address)}" target="_blank" rel="noopener">Navigate</a>` : ''}
+  </div>`;
+}
+
+export function openJobSheet(jobId) {
+  const job = state.getJobs().find((j) => j.id === jobId);
+  if (!job) return;
+  const customer = state.getCustomer(job.customerId);
+
+  openSheet((sheet, close) => {
+    const done = job.status === 'completed';
+    sheet.innerHTML = `
+      <p class="sheet-title">${esc(customer ? customer.name : 'Customer')}</p>
+      <p class="sheet-sub">${esc(customer && customer.address ? customer.address : 'No address on file')}</p>
+      ${linkActions(customer)}
+      <div class="card">
+        ${detailLine('Service', esc(job.service))}
+        ${detailLine('Price', domain.formatCurrency(job.amount))}
+        ${detailLine('Scheduled', job.scheduledAt ? domain.formatDateTime(job.scheduledAt) : 'Not scheduled')}
+        ${done ? detailLine('Completed', domain.formatDateTime(job.completedAt)) : ''}
+        ${done ? detailLine('Payment', job.paymentReceived ? esc(job.paymentMethod) : 'Not received') : ''}
+        ${job.note ? detailLine('Notes', esc(job.note)) : ''}
+      </div>
+      <div id="job-actions"></div>
+    `;
+
+    const actions = sheet.querySelector('#job-actions');
+    if (!done) {
+      const complete = document.createElement('button');
+      complete.className = 'btn-primary';
+      complete.textContent = 'Mark complete';
+      complete.addEventListener('click', () => {
+        close();
+        openCompleteJobSheet(job.id);
+      });
+      actions.appendChild(complete);
+    } else if (!job.paymentReceived) {
+      const pay = document.createElement('button');
+      pay.className = 'btn-primary';
+      pay.textContent = 'Record payment';
+      pay.addEventListener('click', () => {
+        close();
+        openPaymentSheet(job.id);
+      });
+      actions.appendChild(pay);
+    }
+  });
+}
+
+function paymentChips(container) {
+  let selected = domain.PAYMENT_METHODS[0];
+  domain.PAYMENT_METHODS.forEach((method) => {
+    const chip = document.createElement('button');
+    chip.type = 'button';
+    chip.className = 'chip' + (method === selected ? ' active' : '');
+    chip.textContent = method;
+    chip.addEventListener('click', () => {
+      selected = method;
+      container.querySelectorAll('.chip').forEach((c) => c.classList.remove('active'));
+      chip.classList.add('active');
+    });
+    container.appendChild(chip);
+  });
+  return () => selected;
+}
+
+export function openCompleteJobSheet(jobId) {
+  const job = state.getJobs().find((j) => j.id === jobId);
+  if (!job) return;
+  openSheet((sheet, close) => {
+    sheet.innerHTML = `
+      <p class="sheet-title">Job complete</p>
+      <p class="sheet-sub">${domain.formatCurrency(job.amount)} &middot; ${esc(job.service)}</p>
+      <div class="field">
+        <label>Payment method</label>
+        <div class="chip-row" id="pay-methods"></div>
+      </div>
+      <button class="btn-primary" id="paid">Complete &amp; mark paid</button>
+      <button class="btn-secondary" id="unpaid" style="margin-top:10px">Complete — not paid yet</button>
+    `;
+    const getMethod = paymentChips(sheet.querySelector('#pay-methods'));
+    sheet.querySelector('#paid').addEventListener('click', () => {
+      state.completeJob(jobId, { paymentReceived: true, paymentMethod: getMethod() });
+      close();
+    });
+    sheet.querySelector('#unpaid').addEventListener('click', () => {
+      state.completeJob(jobId, { paymentReceived: false });
+      close();
+    });
+  });
+}
+
+export function openPaymentSheet(jobId) {
+  const job = state.getJobs().find((j) => j.id === jobId);
+  if (!job) return;
+  openSheet((sheet, close) => {
+    sheet.innerHTML = `
+      <p class="sheet-title">Record payment</p>
+      <p class="sheet-sub">${domain.formatCurrency(job.amount)} &middot; ${esc(job.service)}</p>
+      <div class="field">
+        <label>Payment method</label>
+        <div class="chip-row" id="pay-methods"></div>
+      </div>
+      <button class="btn-primary" id="save">Mark paid</button>
+    `;
+    const getMethod = paymentChips(sheet.querySelector('#pay-methods'));
+    sheet.querySelector('#save').addEventListener('click', () => {
+      state.recordPayment(jobId, getMethod());
+      close();
+    });
+  });
+}
+
+// --- Quote detail ----------------------------------------------------------
+
+export function openQuoteSheet(quoteId) {
+  const quote = state.getQuotes().find((q) => q.id === quoteId);
+  if (!quote) return;
+  const customer = state.getCustomer(quote.customerId);
+
+  openSheet((sheet, close) => {
+    sheet.innerHTML = `
+      <p class="sheet-title">${esc(customer ? customer.name : 'Customer')}</p>
+      <p class="sheet-sub">${esc(customer && customer.address ? customer.address : 'No address on file')}</p>
+      ${linkActions(customer)}
+      <div class="card">
+        ${detailLine('Service', esc(quote.service))}
+        ${detailLine('Quoted', domain.formatCurrency(quote.amount))}
+        ${detailLine('Follow up', quote.followUpDate ? domain.relativeDay(quote.followUpDate) : 'No date')}
+        ${quote.note ? detailLine('Notes', esc(quote.note)) : ''}
+      </div>
+      <div class="field" id="won-when" hidden>
+        <label>Schedule the job for</label>
+        <input type="datetime-local" id="q-when" value="${nowLocalDateTime()}" />
+      </div>
+      <button class="btn-primary" id="won">Mark won</button>
+      <button class="btn-secondary" id="lost" style="margin-top:10px">Mark lost</button>
+    `;
+
+    // First tap reveals the date, second confirms — so a stray tap on "won"
+    // can't silently put a job on the calendar.
+    const when = sheet.querySelector('#won-when');
+    const wonBtn = sheet.querySelector('#won');
+    wonBtn.addEventListener('click', () => {
+      if (when.hidden) {
+        when.hidden = false;
+        wonBtn.textContent = 'Book this job';
+        return;
+      }
+      const value = sheet.querySelector('#q-when').value;
+      state.markQuoteWon(quoteId, value ? new Date(value).toISOString() : null);
+      close();
+    });
+    sheet.querySelector('#lost').addEventListener('click', () => {
+      if (window.confirm('Mark this quote as lost? It will leave your open quotes.')) {
+        state.markQuoteLost(quoteId);
+        close();
+      }
+    });
+  });
+}

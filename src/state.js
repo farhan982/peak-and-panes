@@ -42,6 +42,18 @@ export function updateSettings(patch) {
   notify();
 }
 
+// Replaces everything with the contents of an already-validated backup.
+// Callers validate and confirm first — this does not ask.
+export function importBackup({ data, settings: incoming }) {
+  state = { ...emptyState(), ...data };
+  saveState(state);
+  if (incoming) {
+    settings = { ...settings, ...incoming };
+    saveSettings(settings);
+  }
+  notify();
+}
+
 export function resetAllData() {
   clearAllData();
   state = emptyState();
@@ -293,6 +305,65 @@ export function logBooked({
     jobId: job.id,
   });
   return { customer, job, door };
+}
+
+export function completeJob(jobId, { paymentReceived, paymentMethod }) {
+  const job = state.jobs.find((j) => j.id === jobId);
+  if (!job) return;
+  job.status = 'completed';
+  job.completedAt = new Date().toISOString();
+  job.paymentReceived = Boolean(paymentReceived);
+  job.paymentMethod = paymentReceived ? paymentMethod || 'Other' : null;
+  notify();
+}
+
+// Money is only counted as collected once payment is actually recorded, which
+// can happen after the job is marked done.
+export function recordPayment(jobId, paymentMethod) {
+  const job = state.jobs.find((j) => j.id === jobId);
+  if (!job) return;
+  job.paymentReceived = true;
+  job.paymentMethod = paymentMethod || 'Other';
+  notify();
+}
+
+// Winning a quote turns it into a scheduled job, carrying the customer over
+// rather than creating a second record for the same person.
+export function markQuoteWon(quoteId, scheduledAt) {
+  const quote = state.quotes.find((q) => q.id === quoteId);
+  if (!quote || quote.status !== 'open') return null;
+  quote.status = 'won';
+  const job = {
+    id: createId(),
+    customerId: quote.customerId,
+    territoryId: quote.territoryId,
+    service: quote.service,
+    amount: quote.amount,
+    scheduledAt: scheduledAt || null,
+    note: quote.note || '',
+    status: 'scheduled',
+    paymentReceived: false,
+    paymentMethod: null,
+    fromQuoteId: quote.id,
+    createdAt: new Date().toISOString(),
+  };
+  state.jobs.push(job);
+  const customer = getCustomer(quote.customerId);
+  if (customer) customer.status = 'booked';
+  notify();
+  return job;
+}
+
+export function markQuoteLost(quoteId) {
+  const quote = state.quotes.find((q) => q.id === quoteId);
+  if (!quote) return;
+  quote.status = 'lost';
+  const customer = getCustomer(quote.customerId);
+  // Only demote a customer who has nothing else going on.
+  if (customer && !state.jobs.some((j) => j.customerId === customer.id)) {
+    customer.status = 'lost';
+  }
+  notify();
 }
 
 // A "Follow Up" door is a soft lead: worth a name and a date, not a quote.

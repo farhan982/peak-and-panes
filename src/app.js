@@ -3,11 +3,12 @@ import * as domain from './domain.js';
 import { renderCanvassing, stopTimer } from './views/canvassing.js';
 import { renderJobs, setJobsTab } from './views/jobs.js';
 import { renderCustomers } from './views/customers.js';
+import { renderSettings } from './views/settings.js';
 import { renderStub } from './views/stub.js';
 import { buildBottomNav } from './views/nav.js';
 
 const root = document.getElementById('app');
-const ROUTES = ['canvassing', 'jobs', 'customers', 'goal'];
+const ROUTES = ['canvassing', 'jobs', 'customers', 'goal', 'settings'];
 
 function currentRoute() {
   const hash = location.hash.replace(/^#\/?/, '');
@@ -34,10 +35,13 @@ function render() {
     renderJobs(root);
   } else if (route === 'customers') {
     renderCustomers(root);
+  } else if (route === 'settings') {
+    renderSettings(root);
   } else {
     renderStub(root, route);
   }
-  root.appendChild(buildBottomNav(route));
+  // Settings has no tab of its own; it is reached from the header gear.
+  root.appendChild(buildBottomNav(route === 'settings' ? '' : route));
 }
 
 window.addEventListener('hashchange', () => {

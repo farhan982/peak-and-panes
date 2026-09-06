@@ -32,9 +32,15 @@ log every door with one tap:
 - Territories are ranked by **revenue per door**, so the picker answers "where
   should I canvass today".
 
-**Jobs** and **Customers** are read-only lists so nothing logged at a door
-disappears: upcoming jobs, completed jobs, open quotes with follow-up dates,
-and every customer with their status and booked value.
+**Jobs closes the loop.** Tap an open quote to mark it **won** (which schedules
+the job and carries the customer over) or **lost**. Tap a job to see it, call or
+navigate to the customer, and mark it complete with a payment method — or
+complete it unpaid and record the payment later. The Completed tab shows
+revenue **collected** and how much is still owed. **Customers** is a read-only
+list of everyone whose name you took at a door.
+
+**Settings** (gear, top left) holds the revenue goal, backup/restore and
+delete-all-data.
 
 ## What is not built yet
 
@@ -42,10 +48,10 @@ and every customer with their status and booked value.
   actions.
 - **Goal & territories** — pace against the $20,000 target, territory scores,
   revenue per hour, weekly review.
-- **Job completion** — payment, photos, review and referral prompts. Jobs can
-  be booked but not yet marked complete, so *Revenue collected* does not exist
-  yet; everything currently shown is **revenue booked**.
-- Map view, seasonal reminders, expenses, backup/restore.
+- **Location capture** — stamping each door with GPS coordinates so the
+  neighbourhoods covered don't have to be typed in.
+- Photos, review and referral prompts on job completion. Editing or deleting a
+  territory. Map view, seasonal reminders, expenses.
 
 ## Structure
 
@@ -58,6 +64,7 @@ and every customer with their status and booked value.
     src/icons.js        inline SVG icons
     src/views/header.js the shared navy band every screen starts with
     src/storage.js      localStorage read/write, ids
+    src/backup.js       export/validate/restore — validation is strict on purpose
     src/state.js        the mutable store + every write action
     src/domain.js       pure calculations: stats, rates, the 20-door test
     src/app.js          hash router

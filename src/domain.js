@@ -33,6 +33,23 @@ export function isAnswered(door) {
   return ANSWERED.includes(door.outcome);
 }
 
+export const PAYMENT_METHODS = ['Cash', 'E-transfer', 'Credit', 'Other'];
+
+// Booked is what was agreed; collected is what was actually paid. The gap
+// between them is the money still owed, which is the number that matters at
+// the end of a week.
+export function revenueBooked(jobs) {
+  return jobs.reduce((sum, j) => sum + (j.amount || 0), 0);
+}
+
+export function revenueCollected(jobs) {
+  return jobs.filter((j) => j.paymentReceived).reduce((sum, j) => sum + (j.amount || 0), 0);
+}
+
+export function awaitingPayment(jobs) {
+  return jobs.filter((j) => j.status === 'completed' && !j.paymentReceived);
+}
+
 // ---------------------------------------------------------------------------
 // Currency
 // ---------------------------------------------------------------------------

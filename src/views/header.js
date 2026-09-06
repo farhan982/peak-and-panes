@@ -19,6 +19,7 @@ export function buildScreen(root, { title, subtitle, subtitleGold, right, seg } 
   band.innerHTML = `
     <div class="brand-row">
       <img class="brand-logo" src="./assets/brand/logo.svg" alt="Peak &amp; Panes" />
+      <button class="gear" id="gear" aria-label="Settings">${icon('gear', 21)}</button>
       <button class="bell" id="bell" aria-label="${due} follow-up${due === 1 ? '' : 's'} due">
         ${icon('bell', 22)}
         ${due ? `<span class="bell-badge">${due}</span>` : ''}
@@ -34,6 +35,9 @@ export function buildScreen(root, { title, subtitle, subtitleGold, right, seg } 
 
   band.querySelector('#bell').addEventListener('click', () => {
     location.hash = '#/quotes';
+  });
+  band.querySelector('#gear').addEventListener('click', () => {
+    location.hash = '#/settings';
   });
 
   if (right) band.querySelector('.band-head').appendChild(right);

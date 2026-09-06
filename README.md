@@ -39,8 +39,14 @@ complete it unpaid and record the payment later. The Completed tab shows
 revenue **collected** and how much is still owed. **Customers** is a read-only
 list of everyone whose name you took at a door.
 
-**Settings** (gear, top left) holds the revenue goal, backup/restore and
-delete-all-data.
+**Location.** Tap "Use my location" on the canvassing screen and the app finds
+the neighbourhood you're standing in — recognising a territory you've worked
+before, or offering to create one named after where you are. From then on every
+door you log is stamped with coordinates, and the end-of-session summary lists
+the streets you actually covered, so none of it has to be typed up afterwards.
+
+**Settings** (gear, top left) holds the revenue goal, backup/restore,
+location status and delete-all-data.
 
 ## What is not built yet
 
@@ -48,8 +54,6 @@ delete-all-data.
   actions.
 - **Goal & territories** — pace against the $20,000 target, territory scores,
   revenue per hour, weekly review.
-- **Location capture** — stamping each door with GPS coordinates so the
-  neighbourhoods covered don't have to be typed in.
 - Photos, review and referral prompts on job completion. Editing or deleting a
   territory. Map view, seasonal reminders, expenses.
 
@@ -91,6 +95,29 @@ so they stay pinned inside the ribbon on devices whose font metrics differ
 The app icons in `assets/icons/` are a **simplified** version of the badge —
 rings plus the roof and window, no text, because the wordmark is illegible at
 180px. Regenerate them with the PIL snippet in the git history of this repo.
+
+## Location, and its three hard limits
+
+`src/geo.js`. Worth knowing before changing anything here:
+
+- **Secure context only.** Geolocation is unavailable over plain http. It works
+  on the deployed https site and on localhost, and nowhere else.
+- **Foreground only.** iOS gives web apps no background location, so a passive
+  all-day trail is impossible. Instead a fix is taken at the moment an outcome
+  is tapped — which is exactly when the app is open and being looked at.
+- **About 10m accuracy.** Enough to know the street, not enough to tell #123
+  from #125. This never replaces the address field.
+
+Coordinates are stored always, with no dependency, so the app keeps working
+offline. Street names are a bonus resolved from OpenStreetMap's Nominatim when
+there is signal: lookups are keyed to a ~100m grid cell and cached permanently
+in localStorage, and spaced at least 1.2s apart, so a street of 85 houses costs
+a handful of requests rather than 85. Failure is silent by design.
+
+Stamping happens *after* the door is logged, via `state.attachDoorLocation`,
+which writes to storage **without** notifying listeners. That is deliberate: a
+fix landing mid-typing would otherwise re-render and steal focus from the
+address field.
 
 ## iOS notes
 

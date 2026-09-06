@@ -70,12 +70,15 @@ export function getTerritory(id) {
   return state.territories.find((t) => t.id === id) || null;
 }
 
-export function createTerritory(name, area, doorTarget) {
+export function createTerritory(name, area, doorTarget, origin) {
   const territory = {
     id: createId(),
     name,
     area: area || '',
     doorTarget: doorTarget || null,
+    // Where the territory was created, so it can be recognised by location
+    // before any doors have been logged in it.
+    origin: origin || null,
     createdAt: new Date().toISOString(),
   };
   state.territories.push(territory);
@@ -173,6 +176,30 @@ export function undoDoor(doorId) {
     state.customers = state.customers.filter((c) => c.id !== door.customerId);
   }
   notify();
+}
+
+// A GPS fix arrives after the door is already logged, and nothing on screen
+// shows the coordinates, so these write straight to storage WITHOUT notifying.
+// A re-render here would steal focus from the address field mid-typing.
+export function attachDoorLocation(doorId, patch) {
+  const door = state.doors.find((d) => d.id === doorId);
+  if (!door) return;
+  Object.assign(door, patch);
+  saveState(state);
+}
+
+export function attachSessionLocation(sessionId, patch) {
+  const session = state.sessions.find((s) => s.id === sessionId);
+  if (!session) return;
+  Object.assign(session, patch);
+  saveState(state);
+}
+
+export function latestDoorId(sessionId) {
+  for (let i = state.doors.length - 1; i >= 0; i--) {
+    if (state.doors[i].sessionId === sessionId) return state.doors[i].id;
+  }
+  return null;
 }
 
 // --- Customers, quotes, jobs ----------------------------------------------

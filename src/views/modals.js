@@ -1,5 +1,6 @@
 import * as state from '../state.js';
 import * as domain from '../domain.js';
+import * as geo from '../geo.js';
 import { nowLocalDateTime, todayISO } from '../storage.js';
 
 export function esc(value) {
@@ -52,18 +53,22 @@ function tomorrowISO() {
 
 // --- Territory -------------------------------------------------------------
 
-export function openNewTerritoryModal(onCreated) {
+export function openNewTerritoryModal(onCreated, prefill = {}) {
   openSheet((sheet, close) => {
     sheet.innerHTML = `
       <p class="sheet-title">New territory</p>
-      <p class="sheet-sub">A neighbourhood or route you can compare against the others.</p>
+      <p class="sheet-sub">${
+        prefill.origin
+          ? 'Named from where you are standing. Change anything that looks wrong.'
+          : 'A neighbourhood or route you can compare against the others.'
+      }</p>
       <div class="field">
         <label>Name</label>
-        <input type="text" id="t-name" placeholder="Centennial" />
+        <input type="text" id="t-name" placeholder="Centennial" value="${esc(prefill.name || '')}" />
       </div>
       <div class="field">
         <label>Area (optional)</label>
-        <input type="text" id="t-area" placeholder="Scarborough, ON" />
+        <input type="text" id="t-area" placeholder="Scarborough, ON" value="${esc(prefill.area || '')}" />
       </div>
       <div class="field">
         <label>Doors in this territory (optional)</label>
@@ -82,7 +87,8 @@ export function openNewTerritoryModal(onCreated) {
       const territory = state.createTerritory(
         name,
         sheet.querySelector('#t-area').value.trim(),
-        doors > 0 ? doors : null
+        doors > 0 ? doors : null,
+        prefill.origin || null
       );
       close();
       if (onCreated) onCreated(territory);
@@ -282,11 +288,12 @@ export function openSessionSummaryModal(session, doors) {
         <div class="stat"><p class="stat-value gold">${domain.formatCurrency(stats.revenueBooked)}</p><p class="stat-label">Booked</p></div>
       </div>
       <div class="card">
-        <div class="card-row"><span class="muted">Doors per hour</span><strong>${rate.toFixed(1)}</strong></div>
+        <div class="card-row"><span class="muted">Doors per hour</span><strong>${rate ? rate.toFixed(1) : '—'}</strong></div>
         <div class="card-row"><span class="muted">Answer rate</span><strong>${domain.formatPercent(stats.knocked ? stats.answered / stats.knocked : 0)}</strong></div>
         <div class="card-row"><span class="muted">Quote value</span><strong>${domain.formatCurrency(stats.quoteValue)}</strong></div>
         <div class="card-row"><span class="muted">Revenue per door</span><strong>${domain.formatCurrency(domain.revenuePerDoor(stats.revenueBooked, stats.knocked))}</strong></div>
       </div>
+      <div id="areas"></div>
       ${
         test
           ? `<div class="test-banner ${test.level}"><div><p class="test-title">${test.title}</p><p class="test-body">Last ${domain.TEST_BLOCK} doors: ${test.stats.answered} answered, ${domain.plural(test.stats.quotes, 'quote')}, ${test.stats.jobs} booked.</p></div></div>`
@@ -294,6 +301,31 @@ export function openSessionSummaryModal(session, doors) {
       }
       <button class="btn-primary" id="s-done">Done</button>
     `;
+    // Where you actually walked, derived from the doors themselves — the whole
+    // point of stamping them, so none of this has to be typed at day's end.
+    const areas = geo.areasCovered(doors);
+    if (areas.length) {
+      const card = document.createElement('div');
+      card.className = 'card';
+      card.innerHTML =
+        '<p class="card-title" style="margin-bottom:8px">Where you covered</p>' +
+        areas
+          .map(
+            (a) =>
+              `<div class="card-row" style="padding:6px 0"><span>${esc(a.label)}${
+                a.area ? `<span class="muted"> · ${esc(a.area)}</span>` : ''
+              }</span><strong>${domain.plural(a.doors, 'door')}</strong></div>`
+          )
+          .join('');
+      sheet.querySelector('#areas').appendChild(card);
+    } else if (doors.some((d) => typeof d.lat === 'number')) {
+      const note = document.createElement('p');
+      note.className = 'card-sub';
+      note.style.margin = '0 0 12px';
+      note.textContent = 'Positions saved. Street names will fill in next time you have signal.';
+      sheet.querySelector('#areas').appendChild(note);
+    }
+
     sheet.querySelector('#s-done').addEventListener('click', close);
   });
 }

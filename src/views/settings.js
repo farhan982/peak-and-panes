@@ -2,6 +2,7 @@ import * as state from '../state.js';
 import * as domain from '../domain.js';
 import { icon } from '../icons.js';
 import { buildScreen } from './header.js';
+import * as geo from '../geo.js';
 import { downloadBackup, restoreFromText, countRecords } from '../backup.js';
 
 export function renderSettings(root) {
@@ -103,6 +104,27 @@ export function renderSettings(root) {
   restoreLabel.appendChild(fileInput);
   backup.appendChild(restoreLabel);
   page.appendChild(backup);
+
+  // --- Location -----------------------------------------------------------
+  const located = state.getState().doors.filter((d) => typeof d.lat === 'number').length;
+  const STATUS_TEXT = {
+    available: 'On. Each door you log is stamped with your position.',
+    denied: 'Blocked. Turn it on in Settings › Safari › Location, then reload.',
+    insecure: 'Unavailable — this page is not being served over https.',
+    unsupported: 'This browser cannot report location.',
+  };
+  const location = document.createElement('div');
+  location.className = 'card';
+  location.innerHTML = `
+    <p class="card-title">Location</p>
+    <p class="card-sub">${STATUS_TEXT[geo.status()]}</p>
+    <p class="card-sub" style="margin-top:8px">${
+      located
+        ? `${domain.plural(located, 'door')} stamped so far. Positions are stored on this device only.`
+        : 'Nothing stamped yet. Accuracy is about 10 metres — enough for the street, not the house number.'
+    }</p>
+  `;
+  page.appendChild(location);
 
   // --- Danger zone --------------------------------------------------------
   const danger = document.createElement('div');

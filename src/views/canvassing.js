@@ -1,5 +1,6 @@
 import * as state from '../state.js';
 import * as domain from '../domain.js';
+import * as geo from '../geo.js';
 import { icon } from '../icons.js';
 import { buildScreen } from './header.js';
 import {
@@ -17,6 +18,10 @@ let selectedTerritoryId = null;
 let currentAddress = '';
 let dismissedTestBlock = 0;
 let timerHandle = null;
+// Result of the last "use my location" tap on the picker. View-local: it is a
+// reading, not data, so it is deliberately not persisted.
+let detected = null;
+let detecting = false;
 
 // The icon and colour for each outcome tile, in the order they are laid out.
 const TILE_STYLE = {
@@ -45,6 +50,42 @@ export function stopTimer() {
   }
 }
 
+// Coordinates are attached after the fact so the tap itself is never delayed
+// by the GPS. Nothing on screen shows them, so no re-render is needed.
+async function stampDoor(doorId) {
+  if (!doorId || !geo.isSupported()) return;
+  const fix = await geo.getFix();
+  if (!fix) return;
+  state.attachDoorLocation(doorId, { lat: fix.lat, lng: fix.lng, accuracy: fix.accuracy });
+
+  const cached = geo.cachedPlace(fix.lat, fix.lng);
+  if (cached) {
+    state.attachDoorLocation(doorId, { place: cached });
+    return;
+  }
+  const place = await geo.resolvePlace(fix.lat, fix.lng);
+  if (place) state.attachDoorLocation(doorId, { place });
+}
+
+// A territory is "here" if the middle of its logged doors — or where it was
+// created, before it has any — is within a few hundred metres.
+const NEARBY_METRES = 400;
+
+function locateTerritory(fix) {
+  const s = state.getState();
+  const scored = state
+    .getTerritories()
+    .map((territory) => {
+      const doors = s.doors.filter((d) => d.territoryId === territory.id && typeof d.lat === 'number');
+      const point = geo.centroid(doors) || territory.origin;
+      return { territory, distance: geo.distanceMetres(fix, point) };
+    })
+    .filter((entry) => isFinite(entry.distance))
+    .sort((a, b) => a.distance - b.distance);
+  const best = scored[0];
+  return best && best.distance <= NEARBY_METRES ? best : null;
+}
+
 export function renderCanvassing(root) {
   stopTimer();
   const session = state.getActiveSession();
@@ -66,6 +107,8 @@ function renderTerritoryPicker(root) {
     title: 'Canvassing',
     subtitle: 'Pick a territory and start knocking.',
   });
+
+  page.appendChild(buildLocationCard(page));
 
   if (!territories.length) {
     const empty = document.createElement('div');
@@ -142,7 +185,11 @@ function renderTerritoryPicker(root) {
     if (!selectedTerritoryId) return;
     currentAddress = '';
     dismissedTestBlock = 0;
-    state.startSession(selectedTerritoryId);
+    const session = state.startSession(selectedTerritoryId);
+    detected = null;
+    geo.getFix().then((fix) => {
+      if (fix) state.attachSessionLocation(session.id, { startedAtLat: fix.lat, startedAtLng: fix.lng });
+    });
   });
   page.appendChild(start);
 
@@ -175,6 +222,89 @@ function renderTerritoryPicker(root) {
       page.appendChild(row);
     });
   }
+}
+
+function buildLocationCard() {
+  const card = document.createElement('div');
+  card.className = 'card';
+
+  if (!geo.isSupported()) {
+    card.innerHTML = `
+      <p class="card-title">Location unavailable</p>
+      <p class="card-sub">${geo.errorHint()}</p>
+    `;
+    return card;
+  }
+
+  const label = detected && detected.place ? geo.placeLabel(detected.place) : '';
+  card.innerHTML = `
+    <p class="card-title">Where are you?</p>
+    <p class="card-sub">${
+      detecting
+        ? 'Getting a fix…'
+        : detected
+        ? detected.match
+          ? `You're in <strong>${esc(detected.match.territory.name)}</strong>, about ${geo.formatDistance(
+              detected.match.distance
+            )} from where you last worked it.`
+          : label
+          ? `You're on <strong>${esc(label)}</strong>${
+              detected.place.area ? `, ${esc(detected.place.area)}` : ''
+            }. No territory here yet.`
+          : 'Got your position, but no territory here yet.'
+        : "Find the neighbourhood you're standing in instead of picking it from the list."
+    }</p>
+  `;
+
+  const action = document.createElement('button');
+  action.className = detected && !detected.match ? 'btn-primary' : 'btn-secondary';
+  action.style.marginTop = '12px';
+  action.disabled = detecting;
+
+  if (detected && !detected.match) {
+    action.textContent = label ? `Create territory here` : 'Create territory here';
+    action.addEventListener('click', () => {
+      openNewTerritoryModal(
+        (territory) => {
+          selectedTerritoryId = territory.id;
+          detected = null;
+          state.refresh();
+        },
+        {
+          name: detected.place ? detected.place.area || detected.place.road : '',
+          area: detected.place ? detected.place.city : '',
+          origin: { lat: detected.fix.lat, lng: detected.fix.lng },
+        }
+      );
+    });
+  } else {
+    action.textContent = detecting ? 'Locating…' : 'Use my location';
+    action.addEventListener('click', async () => {
+      detecting = true;
+      state.refresh();
+      const fix = await geo.getFix();
+      detecting = false;
+      if (!fix) {
+        detected = null;
+        state.refresh();
+        window.alert(geo.errorHint() || 'Could not get a location fix. Try again outdoors.');
+        return;
+      }
+      const match = locateTerritory(fix);
+      if (match) selectedTerritoryId = match.territory.id;
+      detected = { fix, match, place: geo.cachedPlace(fix.lat, fix.lng) };
+      state.refresh();
+      if (!detected.place) {
+        const place = await geo.resolvePlace(fix.lat, fix.lng);
+        if (place && detected && detected.fix === fix) {
+          detected.place = place;
+          state.refresh();
+        }
+      }
+    });
+  }
+  card.appendChild(action);
+  return card;
 }
 
 // ---------------------------------------------------------------------------
@@ -387,6 +517,8 @@ function handleOutcome(outcome, session, address) {
   // address field has to be cleared with a second render of its own.
   const afterSheet = () => {
     currentAddress = '';
+    // The door the sheet just created is the session's most recent one.
+    stampDoor(state.latestDoorId(session.id));
     state.refresh();
   };
   if (outcome === 'quote_given') {
@@ -400,6 +532,7 @@ function handleOutcome(outcome, session, address) {
     // true one-tap actions. Clearing before the log means the re-render that
     // logDoor triggers already shows an empty field.
     currentAddress = '';
-    state.logDoor({ ...context, outcome });
+    const door = state.logDoor({ ...context, outcome });
+    stampDoor(door.id);
   }
 }

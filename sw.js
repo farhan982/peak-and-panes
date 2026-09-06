@@ -2,7 +2,7 @@
 // connection the browser always gets current files, so a deploy takes effect
 // immediately. The cache only serves when the network is unreachable.
 // Bump CACHE_VERSION whenever PRECACHE changes.
-const CACHE_VERSION = 'peak-panes-v3';
+const CACHE_VERSION = 'peak-panes-v4';
 
 const PRECACHE = [
   './',
@@ -17,6 +17,7 @@ const PRECACHE = [
   './src/state.js',
   './src/storage.js',
   './src/domain.js',
+  './src/geo.js',
   './src/backup.js',
   './src/icons.js',
   './src/views/canvassing.js',
@@ -50,6 +51,9 @@ self.addEventListener('activate', (event) => {
 
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
+  // Only handle our own assets — reverse-geocode lookups go straight to the
+  // network and must never be cached as if they were part of the app.
+  if (new URL(event.request.url).origin !== self.location.origin) return;
   event.respondWith(
     fetch(event.request)
       .then((response) => {

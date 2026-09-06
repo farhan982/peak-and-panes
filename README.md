@@ -39,6 +39,12 @@ complete it unpaid and record the payment later. The Completed tab shows
 revenue **collected** and how much is still owed. **Customers** is a read-only
 list of everyone whose name you took at a door.
 
+**Addresses fill themselves in.** The first house of a session comes from GPS;
+after that each outcome you log leaves the *next* house already in the field,
+worked out from the numbering of the doors you have logged. Turn onto a new
+street and GPS notices and re-seeds it. Anything you type by hand wins and is
+never overwritten.
+
 **Location.** Tap "Use my location" on the canvassing screen and the app finds
 the neighbourhood you're standing in — recognising a territory you've worked
 before, or offering to create one named after where you are. From then on every
@@ -113,6 +119,13 @@ offline. Street names are a bonus resolved from OpenStreetMap's Nominatim when
 there is signal: lookups are keyed to a ~100m grid cell and cached permanently
 in localStorage, and spaced at least 1.2s apart, so a street of 85 houses costs
 a handful of requests rather than 85. Failure is silent by design.
+
+**House numbers are predicted, not geocoded.** Canvassing is sequential, so
+once two doors on a street are known the step between them is known, and the
+next address is arithmetic — free, offline, and more accurate than a 10m fix.
+GPS is reserved for the question it can actually answer: which street you have
+just turned onto. `predictNextAddress` falls back to +2 when the step looks
+like noise (over 20) and returns null rather than guessing past zero.
 
 Stamping happens *after* the door is logged, via `state.attachDoorLocation`,
 which writes to storage **without** notifying listeners. That is deliberate: a

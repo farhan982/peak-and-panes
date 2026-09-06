@@ -22,6 +22,12 @@ let timerHandle = null;
 // reading, not data, so it is deliberately not persisted.
 let detected = null;
 let detecting = false;
+// Explanation shown under the address field, so a filled-in address never
+// looks like something the app is certain about.
+let addressHint = '';
+// Set when the user edits the field by hand: their typing outranks any guess
+// that arrives afterwards.
+let addressTouched = false;
 
 // The icon and colour for each outcome tile, in the order they are laid out.
 const TILE_STYLE = {
@@ -48,6 +54,48 @@ export function stopTimer() {
     clearInterval(timerHandle);
     timerHandle = null;
   }
+}
+
+// Fills the address field with the next house. The prediction from the doors
+// already logged is preferred over GPS: it costs nothing, works offline, and
+// on a sequential run it is more accurate than a 10m fix.
+function suggestNextAddress(session) {
+  const doors = domain.sessionDoors(state.getState(), session.id);
+  const predicted = geo.predictNextAddress(doors);
+  if (predicted) {
+    currentAddress = predicted.address;
+    addressHint = `Predicted from your last door — edit if it's wrong`;
+  } else {
+    currentAddress = '';
+    addressHint = '';
+  }
+  addressTouched = false;
+}
+
+// GPS decides the harder question: have you turned onto a different street?
+// Only then is the field re-seeded from the geocoder.
+async function verifyStreet(session) {
+  if (!geo.isSupported()) return;
+  const fix = await geo.getFix();
+  if (!fix) return;
+  const resolved =
+    geo.cachedAddress(fix.lat, fix.lng) || (await geo.resolveAddress(fix.lat, fix.lng));
+  if (!resolved || !resolved.road) return;
+
+  // Never yank the field out from under someone who is typing in it, and
+  // never overwrite an address they entered by hand.
+  const input = document.querySelector('#house-address');
+  if (addressTouched || (input && document.activeElement === input)) return;
+
+  const doors = domain.sessionDoors(state.getState(), session.id);
+  const known = geo.currentStreet(doors);
+  if (known && geo.sameStreet(known, resolved.road)) return; // prediction is already right
+
+  currentAddress = geo.formatAddress(resolved.houseNumber, resolved.road);
+  addressHint = resolved.houseNumber
+    ? 'From GPS — accurate to about 10 m, so check the number'
+    : 'Street from GPS — add the number';
+  state.refresh();
 }
 
 // Coordinates are attached after the fact so the tap itself is never delayed
@@ -185,10 +233,23 @@ function renderTerritoryPicker(root) {
     if (!selectedTerritoryId) return;
     currentAddress = '';
     dismissedTestBlock = 0;
+    addressHint = '';
+    addressTouched = false;
     const session = state.startSession(selectedTerritoryId);
     detected = null;
-    geo.getFix().then((fix) => {
-      if (fix) state.attachSessionLocation(session.id, { startedAtLat: fix.lat, startedAtLng: fix.lng });
+    geo.getFix().then(async (fix) => {
+      if (!fix) return;
+      state.attachSessionLocation(session.id, { startedAtLat: fix.lat, startedAtLng: fix.lng });
+      // Seed the first house of the session; after this the prediction takes
+      // over and no further lookups are needed on the same street.
+      const resolved = await geo.resolveAddress(fix.lat, fix.lng);
+      const input = document.querySelector('#house-address');
+      if (!resolved || addressTouched || (input && document.activeElement === input)) return;
+      currentAddress = geo.formatAddress(resolved.houseNumber, resolved.road);
+      addressHint = resolved.houseNumber
+        ? 'From GPS — accurate to about 10 m, so check the number'
+        : 'Street from GPS — add the number';
+      state.refresh();
     });
   });
   page.appendChild(start);
@@ -395,12 +456,34 @@ function renderActiveSession(root, session) {
           : ''
       }
     </div>
-    <input class="house-input" id="house-address" type="text"
-      placeholder="123 Pinecrest Ave" value="${esc(currentAddress)}" />
+    <div class="house-input-row">
+      <input class="house-input" id="house-address" type="text"
+        placeholder="123 Pinecrest Ave" value="${esc(currentAddress)}" />
+      <button class="house-locate" id="house-locate" aria-label="Detect this address">${icon('navigate', 19)}</button>
+    </div>
+    ${addressHint ? `<p class="house-hint">${addressHint}</p>` : ''}
   `;
   const addressInput = house.querySelector('#house-address');
   addressInput.addEventListener('input', () => {
     currentAddress = addressInput.value;
+    addressTouched = true;
+  });
+  house.querySelector('#house-locate').addEventListener('click', async () => {
+    const btn = house.querySelector('#house-locate');
+    btn.disabled = true;
+    const fix = await geo.getFix({ maximumAge: 0 });
+    const resolved = fix ? await geo.resolveAddress(fix.lat, fix.lng) : null;
+    btn.disabled = false;
+    if (!resolved) {
+      window.alert(geo.errorHint() || 'Could not work out an address here. Type it in.');
+      return;
+    }
+    currentAddress = geo.formatAddress(resolved.houseNumber, resolved.road);
+    addressHint = resolved.houseNumber
+      ? 'From GPS — accurate to about 10 m, so check the number'
+      : 'Street from GPS — add the number';
+    addressTouched = false;
+    state.refresh();
   });
   page.appendChild(house);
 
@@ -516,10 +599,11 @@ function handleOutcome(outcome, session, address) {
   // The sheet flows save (and therefore re-render) before this runs, so the
   // address field has to be cleared with a second render of its own.
   const afterSheet = () => {
-    currentAddress = '';
     // The door the sheet just created is the session's most recent one.
     stampDoor(state.latestDoorId(session.id));
+    suggestNextAddress(session);
     state.refresh();
+    verifyStreet(session);
   };
   if (outcome === 'quote_given') {
     openQuoteModal(context, afterSheet);
@@ -531,8 +615,10 @@ function handleOutcome(outcome, session, address) {
     // No Answer and Not Interested need no extra information, so they stay
     // true one-tap actions. Clearing before the log means the re-render that
     // logDoor triggers already shows an empty field.
-    currentAddress = '';
     const door = state.logDoor({ ...context, outcome });
     stampDoor(door.id);
+    suggestNextAddress(session);
+    state.refresh();
+    verifyStreet(session);
   }
 }

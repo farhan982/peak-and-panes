@@ -354,8 +354,35 @@ button {
   font-weight: 600;
 }
 
+.house-input-row {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+
+.house-locate {
+  flex: none;
+  width: 50px;
+  border-radius: var(--radius-sm);
+  background: var(--blue-soft);
+  color: var(--blue);
+  display: grid;
+  place-items: center;
+}
+
+.house-locate:disabled {
+  opacity: 0.5;
+}
+
+.house-hint {
+  margin: 8px 2px 0;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
 .house-input {
   width: 100%;
+  min-width: 0;
   background: #f7f9fc;
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);

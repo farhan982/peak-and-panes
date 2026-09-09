@@ -505,3 +505,138 @@ export function openQuoteSheet(quoteId) {
     });
   });
 }
+
+// --- Standalone quote and job ----------------------------------------------
+//
+// The door flows above create a customer, a record and a door in one go. These
+// two are the same forms without the door, for work that comes in by phone or
+// referral rather than by knocking.
+
+export function openNewQuoteModal(onDone) {
+  openSheet((sheet, close) => {
+    sheet.innerHTML = `
+      <p class="sheet-title">New quote</p>
+      <p class="sheet-sub">For a lead that didn't come from a door.</p>
+      <div class="field">
+        <label>Customer name</label>
+        <input type="text" id="n-name" placeholder="Sarah Johnson" />
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label>Phone</label>
+          <input type="tel" id="n-phone" inputmode="tel" placeholder="416 555 0199" />
+        </div>
+        <div class="field">
+          <label>Amount</label>
+          <div class="input-prefix">
+            <span class="prefix-symbol">${domain.currencySymbol()}</span>
+            <input type="number" id="n-amount" inputmode="decimal" placeholder="350" min="0" step="1" />
+          </div>
+        </div>
+      </div>
+      <div class="field">
+        <label>Address</label>
+        <input type="text" id="n-address" placeholder="123 Pinecrest Ave" />
+      </div>
+      <div class="field">
+        <label>Service</label>
+        <div class="chip-row" id="n-services"></div>
+      </div>
+      <div class="field">
+        <label>Follow up on</label>
+        <input type="date" id="n-followup" value="${todayISO()}" />
+      </div>
+      <div class="field">
+        <label>Notes (optional)</label>
+        <textarea id="n-note"></textarea>
+      </div>
+      <button class="btn-primary" id="n-save">Save quote</button>
+    `;
+    const getService = serviceChips(sheet, '#n-services');
+    const nameInput = sheet.querySelector('#n-name');
+    sheet.querySelector('#n-save').addEventListener('click', () => {
+      const name = nameInput.value.trim();
+      if (!name) {
+        nameInput.focus();
+        return;
+      }
+      const amount = parseFloat(sheet.querySelector('#n-amount').value);
+      state.createQuoteDirect({
+        name,
+        phone: sheet.querySelector('#n-phone').value.trim(),
+        address: sheet.querySelector('#n-address').value.trim(),
+        service: getService(),
+        amount: amount > 0 ? amount : 0,
+        followUpDate: sheet.querySelector('#n-followup').value || null,
+        note: sheet.querySelector('#n-note').value.trim(),
+      });
+      close();
+      if (onDone) onDone();
+    });
+  });
+}
+
+export function openNewJobModal(onDone) {
+  openSheet((sheet, close) => {
+    sheet.innerHTML = `
+      <p class="sheet-title">Add job</p>
+      <p class="sheet-sub">Straight onto the schedule.</p>
+      <div class="field">
+        <label>Customer name</label>
+        <input type="text" id="n-name" placeholder="Michael Thompson" />
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label>Phone</label>
+          <input type="tel" id="n-phone" inputmode="tel" placeholder="416 555 0199" />
+        </div>
+        <div class="field">
+          <label>Price</label>
+          <div class="input-prefix">
+            <span class="prefix-symbol">${domain.currencySymbol()}</span>
+            <input type="number" id="n-amount" inputmode="decimal" placeholder="485" min="0" step="1" />
+          </div>
+        </div>
+      </div>
+      <div class="field">
+        <label>Address</label>
+        <input type="text" id="n-address" placeholder="45 Oakridge Dr" />
+      </div>
+      <div class="field">
+        <label>Service</label>
+        <div class="chip-row" id="n-services"></div>
+      </div>
+      <div class="field">
+        <label>Scheduled for</label>
+        <input type="datetime-local" id="n-when" value="${nowLocalDateTime()}" />
+      </div>
+      <div class="field">
+        <label>Notes (optional)</label>
+        <textarea id="n-note"></textarea>
+      </div>
+      <button class="btn-primary" id="n-save">Add job</button>
+    `;
+    const getService = serviceChips(sheet, '#n-services');
+    const nameInput = sheet.querySelector('#n-name');
+    sheet.querySelector('#n-save').addEventListener('click', () => {
+      const name = nameInput.value.trim();
+      if (!name) {
+        nameInput.focus();
+        return;
+      }
+      const amount = parseFloat(sheet.querySelector('#n-amount').value);
+      const when = sheet.querySelector('#n-when').value;
+      state.createJobDirect({
+        name,
+        phone: sheet.querySelector('#n-phone').value.trim(),
+        address: sheet.querySelector('#n-address').value.trim(),
+        service: getService(),
+        amount: amount > 0 ? amount : 0,
+        scheduledAt: when ? new Date(when).toISOString() : null,
+        note: sheet.querySelector('#n-note').value.trim(),
+      });
+      close();
+      if (onDone) onDone();
+    });
+  });
+}

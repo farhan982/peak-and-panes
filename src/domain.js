@@ -241,3 +241,174 @@ export function relativeDay(iso) {
   if (day === tomorrow) return 'Tomorrow';
   return formatDate(iso);
 }
+
+// ---------------------------------------------------------------------------
+// Periods
+// ---------------------------------------------------------------------------
+
+const MS_DAY = 86400000;
+
+export function startOfDay(date = new Date()) {
+  const d = new Date(date);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+// Weeks start Monday — a canvassing week is Mon–Sun, not Sun–Sat.
+export function startOfWeek(date = new Date()) {
+  const d = startOfDay(date);
+  d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+  return d;
+}
+
+export function withinRange(iso, from, to) {
+  if (!iso) return false;
+  const t = new Date(iso).getTime();
+  return t >= from.getTime() && t < to.getTime();
+}
+
+export function daysBetween(from, to) {
+  return Math.round((startOfDay(to) - startOfDay(from)) / MS_DAY);
+}
+
+// ---------------------------------------------------------------------------
+// Goal
+// ---------------------------------------------------------------------------
+
+// Collected is the headline: money actually received. Booked-but-unpaid is
+// tracked alongside rather than folded in, because counting work you have not
+// been paid for towards a revenue goal is how people fool themselves.
+export function goalProgress(jobs, settings, now = new Date()) {
+  const goal = settings.goalAmount || 0;
+  const collected = revenueCollected(jobs);
+  const outstanding = revenueBooked(jobs.filter((j) => !j.paymentReceived));
+
+  const start = startOfDay(new Date(`${settings.goalStart}T00:00:00`));
+  const end = startOfDay(new Date(`${settings.goalEnd}T00:00:00`));
+  const totalDays = Math.max(1, daysBetween(start, end));
+  const elapsed = Math.min(totalDays, Math.max(0, daysBetween(start, now)));
+  const daysLeft = Math.max(0, totalDays - elapsed);
+
+  const remaining = Math.max(0, goal - collected);
+  // Projecting from a single day's takings is noise, so the projection only
+  // means anything once a few days have passed.
+  const perDay = elapsed > 0 ? collected / elapsed : 0;
+  const projected = elapsed >= 3 ? perDay * totalDays : null;
+  const expected = goal * (totalDays ? elapsed / totalDays : 0);
+
+  return {
+    goal,
+    collected,
+    outstanding,
+    pct: goal ? collected / goal : 0,
+    outstandingPct: goal ? outstanding / goal : 0,
+    remaining,
+    totalDays,
+    elapsed,
+    daysLeft,
+    projected,
+    expected,
+    aheadBy: collected - expected,
+    requiredPerDay: daysLeft > 0 ? remaining / daysLeft : remaining,
+    requiredPerWeek: daysLeft > 0 ? (remaining / daysLeft) * 7 : remaining,
+  };
+}
+
+// Cumulative collected revenue, one point per day across the goal window so
+// far. Used for the goal chart.
+export function cumulativeSeries(jobs, settings, now = new Date()) {
+  const start = startOfDay(new Date(`${settings.goalStart}T00:00:00`));
+  const days = Math.max(0, daysBetween(start, now));
+  const paid = jobs
+    .filter((j) => j.paymentReceived && j.completedAt)
+    .map((j) => ({ day: daysBetween(start, new Date(j.completedAt)), amount: j.amount || 0 }))
+    .filter((p) => p.day >= 0);
+
+  const series = [];
+  let total = 0;
+  for (let day = 0; day <= days; day++) {
+    paid.filter((p) => p.day === day).forEach((p) => (total += p.amount));
+    series.push({ day, total });
+  }
+  return series;
+}
+
+// ---------------------------------------------------------------------------
+// Funnel
+// ---------------------------------------------------------------------------
+
+export function funnel(doors) {
+  const stats = doorStats(doors);
+  return {
+    doors: stats.knocked,
+    quotes: stats.quotes,
+    jobs: stats.jobs,
+    doorToQuote: stats.knocked ? stats.quotes / stats.knocked : null,
+    quoteToJob: stats.quotes ? stats.jobs / stats.quotes : null,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Recommendations
+// ---------------------------------------------------------------------------
+
+// Deliberately few, concrete, and each one derived from something the app can
+// actually see. Ordered by how much money is sitting behind them.
+export function recommendations(s, settings, now = new Date()) {
+  const out = [];
+  const today = now.toISOString().slice(0, 10);
+
+  const unpaid = awaitingPayment(s.jobs);
+  if (unpaid.length) {
+    out.push({
+      icon: 'dollar',
+      text: `Collect ${formatCurrency(revenueBooked(unpaid))} from ${plural(unpaid.length, 'finished job')}`,
+      hash: '#/jobs',
+    });
+  }
+
+  const due = s.quotes.filter((q) => q.status === 'open' && q.followUpDate && q.followUpDate <= today);
+  if (due.length) {
+    out.push({
+      icon: 'doc',
+      text: `Follow up ${plural(due.length, 'open quote')} — ${formatCurrency(
+        due.reduce((sum, q) => sum + (q.amount || 0), 0)
+      )} in play`,
+      hash: '#/quotes',
+    });
+  }
+
+  const progress = goalProgress(s.jobs, settings, now);
+  if (progress.goal && progress.daysLeft > 0 && progress.aheadBy < 0) {
+    out.push({
+      icon: 'target',
+      text: `Behind pace — ${formatCurrency(progress.requiredPerWeek)} a week gets you to the goal`,
+      hash: '#/goal',
+    });
+  }
+
+  const best = s.territories
+    .map((t) => ({ t, stats: territoryStats(s, t.id) }))
+    .filter((entry) => entry.stats.knocked >= TEST_BLOCK)
+    .sort((a, b) => b.stats.revenuePerDoor - a.stats.revenuePerDoor)[0];
+  if (best && best.stats.revenuePerDoor > 0) {
+    out.push({
+      icon: 'walk',
+      text: `${best.t.name} pays best — ${formatCurrency(best.stats.revenuePerDoor)} a door`,
+      hash: '#/canvassing',
+    });
+  }
+
+  const weekDoors = s.doors.filter((d) => withinRange(d.at, startOfWeek(now), now)).length;
+  if (weekDoors < 100) {
+    out.push({
+      icon: 'door',
+      text: weekDoors
+        ? `${weekDoors} doors this week — knock ${100 - weekDoors} more`
+        : 'No doors knocked this week yet',
+      hash: '#/canvassing',
+    });
+  }
+
+  return out.slice(0, 4);
+}

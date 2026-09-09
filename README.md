@@ -54,12 +54,22 @@ the streets you actually covered, so none of it has to be typed up afterwards.
 **Settings** (gear, top left) holds the revenue goal, backup/restore,
 location status and delete-all-data.
 
+**Dashboard** answers "how is the business doing right now": goal progress,
+this week's revenue against last week's, open quotes, jobs booked, doors
+knocked, today's schedule, the doors-to-quotes-to-jobs funnel, and four quick
+actions.
+
+**Goal & Territories** answers "am I going to make it": collected against the
+target with a chart of actual versus the pace needed, territories ranked by
+revenue per door, the weekly target, and a short list of what to do next —
+each item derived from something the app can actually see.
+
+Both treat **collected** money as the headline. Work that is booked but not yet
+paid for is shown alongside, never folded in — counting revenue you have not
+received towards a revenue goal is how people fool themselves.
+
 ## What is not built yet
 
-- **Dashboard** — goal card, weekly revenue, funnel, today's schedule, quick
-  actions.
-- **Goal & territories** — pace against the $20,000 target, territory scores,
-  revenue per hour, weekly review.
 - Photos, review and referral prompts on job completion. Editing or deleting a
   territory. Map view, seasonal reminders, expenses.
 

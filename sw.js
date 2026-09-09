@@ -2,7 +2,7 @@
 // connection the browser always gets current files, so a deploy takes effect
 // immediately. The cache only serves when the network is unreachable.
 // Bump CACHE_VERSION whenever PRECACHE changes.
-const CACHE_VERSION = 'peak-panes-v4';
+const CACHE_VERSION = 'peak-panes-v5';
 
 const PRECACHE = [
   './',
@@ -21,13 +21,15 @@ const PRECACHE = [
   './src/backup.js',
   './src/icons.js',
   './src/views/canvassing.js',
+  './src/views/chart.js',
+  './src/views/dashboard.js',
+  './src/views/goal.js',
   './src/views/header.js',
   './src/views/customers.js',
   './src/views/jobs.js',
   './src/views/modals.js',
   './src/views/nav.js',
   './src/views/settings.js',
-  './src/views/stub.js',
 ];
 
 self.addEventListener('install', (event) => {

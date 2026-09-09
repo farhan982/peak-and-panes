@@ -22,7 +22,7 @@ export function buildScreen(root, { title, subtitle, subtitleGold, right, seg } 
       <button class="gear" id="gear" aria-label="Settings">${icon('gear', 21)}</button>
       <button class="bell" id="bell" aria-label="${due} follow-up${due === 1 ? '' : 's'} due">
         ${icon('bell', 22)}
-        ${due ? `<span class="bell-badge">${due}</span>` : ''}
+        ${due ? `<span class="bell-badge">${due > 9 ? '9+' : due}</span>` : ''}
       </button>
     </div>
     <div class="band-head">

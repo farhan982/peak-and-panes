@@ -334,6 +334,61 @@ export function logBooked({
   return { customer, job, door };
 }
 
+// Work that arrives by phone or referral rather than at a door. Same records,
+// no session and no door.
+export function createQuoteDirect({ name, phone, address, service, amount, followUpDate, note, source }) {
+  const customer = addCustomer({
+    name,
+    phone: phone || '',
+    address: address || '',
+    status: 'quote_sent',
+    source: source || 'Other',
+    note: note || '',
+  });
+  const quote = {
+    id: createId(),
+    customerId: customer.id,
+    territoryId: null,
+    service,
+    amount: amount || 0,
+    followUpDate: followUpDate || null,
+    note: note || '',
+    status: 'open',
+    createdAt: new Date().toISOString(),
+  };
+  state.quotes.push(quote);
+  notify();
+  return quote;
+}
+
+export function createJobDirect({ name, phone, email, address, service, amount, scheduledAt, note, source }) {
+  const customer = addCustomer({
+    name,
+    phone: phone || '',
+    email: email || '',
+    address: address || '',
+    status: 'booked',
+    source: source || 'Other',
+    note: note || '',
+  });
+  const job = {
+    id: createId(),
+    customerId: customer.id,
+    territoryId: null,
+    service,
+    amount: amount || 0,
+    scheduledAt: scheduledAt || null,
+    note: note || '',
+    status: 'scheduled',
+    paymentReceived: false,
+    paymentMethod: null,
+    createdAt: new Date().toISOString(),
+  };
+  state.jobs.push(job);
+  notify();
+  return job;
+}
+
 export function completeJob(jobId, { paymentReceived, paymentMethod }) {
   const job = state.jobs.find((j) => j.id === jobId);
   if (!job) return;

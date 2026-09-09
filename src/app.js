@@ -4,7 +4,8 @@ import { renderCanvassing, stopTimer } from './views/canvassing.js';
 import { renderJobs, setJobsTab } from './views/jobs.js';
 import { renderCustomers } from './views/customers.js';
 import { renderSettings } from './views/settings.js';
-import { renderStub } from './views/stub.js';
+import { renderDashboard } from './views/dashboard.js';
+import { renderGoal } from './views/goal.js';
 import { buildBottomNav } from './views/nav.js';
 
 const root = document.getElementById('app');
@@ -37,8 +38,10 @@ function render() {
     renderCustomers(root);
   } else if (route === 'settings') {
     renderSettings(root);
+  } else if (route === 'goal') {
+    renderGoal(root);
   } else {
-    renderStub(root, route);
+    renderDashboard(root);
   }
   // Settings has no tab of its own; it is reached from the header gear.
   root.appendChild(buildBottomNav(route === 'settings' ? '' : route));

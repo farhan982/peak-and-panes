@@ -640,3 +640,80 @@ export function openNewJobModal(onDone) {
     });
   });
 }
+
+// --- Goals -----------------------------------------------------------------
+
+function plusDays(days) {
+  return new Date(Date.now() + days * 86400000).toISOString().slice(0, 10);
+}
+
+// One form for both editing the running goal and starting the next one.
+export function openGoalModal(existing, onDone) {
+  const goal = existing || null;
+  openSheet((sheet, close) => {
+    sheet.innerHTML = `
+      <p class="sheet-title">${goal ? 'Edit goal' : 'New goal'}</p>
+      <p class="sheet-sub">${
+        goal
+          ? 'Only money collected inside this window counts towards it.'
+          : 'Starts fresh. Everything you have already collected stays in your all-time total.'
+      }</p>
+      <div class="field">
+        <label>Goal amount</label>
+        <div class="input-prefix">
+          <span class="prefix-symbol">${domain.currencySymbol()}</span>
+          <input type="number" id="gl-amount" inputmode="decimal" min="0" step="100"
+            value="${goal ? goal.amount : 20000}" />
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label>Starts</label>
+          <input type="date" id="gl-start" value="${goal ? goal.startDate : todayISO()}" />
+        </div>
+        <div class="field">
+          <label>Ends</label>
+          <input type="date" id="gl-end" value="${goal ? goal.endDate : plusDays(90)}" />
+        </div>
+      </div>
+      <div class="field">
+        <label>Weekly target</label>
+        <div class="input-prefix">
+          <span class="prefix-symbol">${domain.currencySymbol()}</span>
+          <input type="number" id="gl-weekly" inputmode="decimal" min="0" step="50"
+            value="${goal ? goal.weeklyTarget : 2500}" />
+        </div>
+      </div>
+      <p class="card-sub" id="gl-warn" hidden></p>
+      <button class="btn-primary" id="gl-save">${goal ? 'Save goal' : 'Start this goal'}</button>
+    `;
+
+    const warn = sheet.querySelector('#gl-warn');
+    sheet.querySelector('#gl-save').addEventListener('click', () => {
+      const amount = parseFloat(sheet.querySelector('#gl-amount').value);
+      const weekly = parseFloat(sheet.querySelector('#gl-weekly').value);
+      const startDate = sheet.querySelector('#gl-start').value;
+      const endDate = sheet.querySelector('#gl-end').value;
+      if (!(amount > 0)) {
+        warn.textContent = 'Give the goal an amount above zero.';
+        warn.hidden = false;
+        return;
+      }
+      if (!startDate || !endDate || endDate <= startDate) {
+        warn.textContent = 'The end date has to come after the start date.';
+        warn.hidden = false;
+        return;
+      }
+      const fields = { amount, weeklyTarget: weekly > 0 ? weekly : 0, startDate, endDate };
+      if (goal) {
+        // Moving the start date has to move the counting boundary with it,
+        // unless the day is unchanged (then keep the original moment).
+        if (startDate !== goal.startDate) fields.startAt = `${startDate}T00:00:00.000Z`;
+        state.updateGoal(goal.id, fields);
+      }
+      else state.createGoal(fields);
+      close();
+      if (onDone) onDone();
+    });
+  });
+}

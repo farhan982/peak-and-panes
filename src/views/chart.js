@@ -7,8 +7,13 @@ export function buildGoalChart(series, goal, totalDays, formatCurrency) {
   const wrap = document.createElement('div');
   wrap.className = 'chart-wrap';
 
-  if (!series.length || !goal) {
+  if (!goal || !series.length) {
     wrap.innerHTML = '<p class="chart-empty">The chart appears once payments start coming in.</p>';
+    return wrap;
+  }
+  // One point is a dot, not a line — nothing to plot until a second day.
+  if (series.length < 2) {
+    wrap.innerHTML = '<p class="chart-empty">The chart fills in as the days pass.</p>';
     return wrap;
   }
 

@@ -3,6 +3,7 @@ import * as domain from '../domain.js';
 import { icon } from '../icons.js';
 import { buildScreen } from './header.js';
 import * as geo from '../geo.js';
+import { openGoalModal } from './modals.js';
 import { downloadBackup, restoreFromText, countRecords } from '../backup.js';
 
 export function renderSettings(root) {
@@ -10,48 +11,72 @@ export function renderSettings(root) {
   const settings = state.getSettings();
   const s = state.getState();
 
-  // --- Goal ---------------------------------------------------------------
-  const goal = document.createElement('div');
-  goal.className = 'card';
-  goal.innerHTML = `
-    <p class="card-title" style="margin-bottom:12px">Revenue goal</p>
-    <div class="field">
-      <label>Goal amount</label>
-      <div class="input-prefix">
-        <span class="prefix-symbol">${domain.currencySymbol()}</span>
-        <input type="number" id="g-amount" inputmode="decimal" min="0" step="100" value="${settings.goalAmount}" />
-      </div>
+  // --- You -----------------------------------------------------------------
+  const you = document.createElement('div');
+  you.className = 'card';
+  you.innerHTML = `
+    <p class="card-title" style="margin-bottom:12px">You</p>
+    <div class="field" style="margin-bottom:0">
+      <label>Name</label>
+      <input type="text" id="s-name" placeholder="Farhan" value="${(settings.userName || '').replace(/"/g, '&quot;')}" />
     </div>
-    <div class="field-row">
-      <div class="field">
-        <label>Starts</label>
-        <input type="date" id="g-start" value="${settings.goalStart}" />
-      </div>
-      <div class="field">
-        <label>Ends</label>
-        <input type="date" id="g-end" value="${settings.goalEnd}" />
-      </div>
-    </div>
-    <div class="field">
-      <label>Weekly target</label>
-      <div class="input-prefix">
-        <span class="prefix-symbol">${domain.currencySymbol()}</span>
-        <input type="number" id="g-weekly" inputmode="decimal" min="0" step="50" value="${settings.weeklyTarget}" />
-      </div>
-    </div>
-    <button class="btn-primary" id="g-save">Save goal</button>
+    <p class="card-sub" style="margin-top:8px">Used for the greeting on the dashboard.</p>
   `;
-  goal.querySelector('#g-save').addEventListener('click', () => {
-    const amount = parseFloat(goal.querySelector('#g-amount').value);
-    const weekly = parseFloat(goal.querySelector('#g-weekly').value);
-    state.updateSettings({
-      goalAmount: amount > 0 ? amount : settings.goalAmount,
-      goalStart: goal.querySelector('#g-start').value || settings.goalStart,
-      goalEnd: goal.querySelector('#g-end').value || settings.goalEnd,
-      weeklyTarget: weekly > 0 ? weekly : settings.weeklyTarget,
-    });
+  const nameInput = you.querySelector('#s-name');
+  // Saved on blur rather than per keystroke: updateSettings re-renders, which
+  // would rebuild the field and lose the caret mid-word.
+  nameInput.addEventListener('blur', () => {
+    const value = nameInput.value.trim();
+    if (value !== (settings.userName || '')) state.updateSettings({ userName: value });
   });
-  page.appendChild(goal);
+  page.appendChild(you);
+
+  // --- Goals ---------------------------------------------------------------
+  const active = domain.activeGoal(settings);
+  const goals = document.createElement('div');
+  goals.className = 'card';
+  goals.innerHTML = `<p class="card-title">Goal</p>`;
+
+  if (active) {
+    const progress = domain.goalProgress(s.jobs, active);
+    goals.innerHTML += `
+      <p class="card-sub">${domain.formatCurrency(active.amount)} between ${domain.formatDate(
+        active.startDate
+      )} and ${domain.formatDate(active.endDate)}, with a ${domain.formatCurrency(
+        active.weeklyTarget
+      )} weekly target.</p>
+      <p class="card-sub" style="margin-top:6px">${domain.formatCurrency(
+        progress.collected
+      )} collected inside this window so far.</p>
+    `;
+  } else {
+    goals.innerHTML += `<p class="card-sub">No goal running. Set one to track pace again.</p>`;
+  }
+
+  const editBtn = document.createElement('button');
+  editBtn.className = active ? 'btn-secondary' : 'btn-primary';
+  editBtn.style.marginTop = '14px';
+  editBtn.textContent = active ? 'Edit this goal' : 'Set a goal';
+  editBtn.addEventListener('click', () => openGoalModal(active));
+  goals.appendChild(editBtn);
+
+  if (active) {
+    const nextBtn = document.createElement('button');
+    nextBtn.className = 'btn-primary';
+    nextBtn.style.marginTop = '10px';
+    nextBtn.textContent = 'Start a new goal';
+    nextBtn.addEventListener('click', () => {
+      if (
+        window.confirm(
+          'Start a new goal? The one running now is closed and kept in your history. Money already collected stays in your all-time total.'
+        )
+      ) {
+        openGoalModal(null);
+      }
+    });
+    goals.appendChild(nextBtn);
+  }
+  page.appendChild(goals);
 
   // --- Backup -------------------------------------------------------------
   const counts = countRecords(s);

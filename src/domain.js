@@ -275,16 +275,43 @@ export function daysBetween(from, to) {
 // Goal
 // ---------------------------------------------------------------------------
 
+export function activeGoal(settings) {
+  return (settings.goals || []).find((g) => g.status === 'active') || null;
+}
+
+export function pastGoals(settings) {
+  return (settings.goals || []).filter((g) => g.status !== 'active').reverse();
+}
+
+// Money is only counted towards a goal if it was collected inside that goal's
+// window. Without this, starting a second goal would show it as instantly
+// complete, because lifetime revenue already exceeds it.
+export function jobsInGoal(jobs, goal) {
+  if (!goal) return [];
+  const from = goal.startAt || `${goal.startDate}T00:00:00`;
+  const to = goal.closedAt || (goal.status === 'active' ? null : `${goal.endDate}T23:59:59`);
+  return jobs.filter((j) => {
+    if (!j.completedAt || j.completedAt < from) return false;
+    return !to || j.completedAt <= to;
+  });
+}
+
+export function lifetimeCollected(jobs) {
+  return revenueCollected(jobs);
+}
+
 // Collected is the headline: money actually received. Booked-but-unpaid is
 // tracked alongside rather than folded in, because counting work you have not
 // been paid for towards a revenue goal is how people fool themselves.
-export function goalProgress(jobs, settings, now = new Date()) {
-  const goal = settings.goalAmount || 0;
+export function goalProgress(allJobs, goalRecord, now = new Date()) {
+  if (!goalRecord) return null;
+  const jobs = jobsInGoal(allJobs, goalRecord);
+  const goal = goalRecord.amount || 0;
   const collected = revenueCollected(jobs);
-  const outstanding = revenueBooked(jobs.filter((j) => !j.paymentReceived));
+  const outstanding = revenueBooked(allJobs.filter((j) => !j.paymentReceived));
 
-  const start = startOfDay(new Date(`${settings.goalStart}T00:00:00`));
-  const end = startOfDay(new Date(`${settings.goalEnd}T00:00:00`));
+  const start = startOfDay(new Date(`${goalRecord.startDate}T00:00:00`));
+  const end = startOfDay(new Date(`${goalRecord.endDate}T00:00:00`));
   const totalDays = Math.max(1, daysBetween(start, end));
   const elapsed = Math.min(totalDays, Math.max(0, daysBetween(start, now)));
   const daysLeft = Math.max(0, totalDays - elapsed);
@@ -297,9 +324,11 @@ export function goalProgress(jobs, settings, now = new Date()) {
   const expected = goal * (totalDays ? elapsed / totalDays : 0);
 
   return {
+    record: goalRecord,
     goal,
     collected,
     outstanding,
+    achieved: goal > 0 && collected >= goal,
     pct: goal ? collected / goal : 0,
     outstandingPct: goal ? outstanding / goal : 0,
     remaining,
@@ -316,8 +345,10 @@ export function goalProgress(jobs, settings, now = new Date()) {
 
 // Cumulative collected revenue, one point per day across the goal window so
 // far. Used for the goal chart.
-export function cumulativeSeries(jobs, settings, now = new Date()) {
-  const start = startOfDay(new Date(`${settings.goalStart}T00:00:00`));
+export function cumulativeSeries(allJobs, goalRecord, now = new Date()) {
+  if (!goalRecord) return [];
+  const jobs = jobsInGoal(allJobs, goalRecord);
+  const start = startOfDay(new Date(`${goalRecord.startDate}T00:00:00`));
   const days = Math.max(0, daysBetween(start, now));
   const paid = jobs
     .filter((j) => j.paymentReceived && j.completedAt)
@@ -378,8 +409,8 @@ export function recommendations(s, settings, now = new Date()) {
     });
   }
 
-  const progress = goalProgress(s.jobs, settings, now);
-  if (progress.goal && progress.daysLeft > 0 && progress.aheadBy < 0) {
+  const progress = goalProgress(s.jobs, activeGoal(settings), now);
+  if (progress && progress.goal && progress.daysLeft > 0 && !progress.achieved && progress.aheadBy < 0) {
     out.push({
       icon: 'target',
       text: `Behind pace — ${formatCurrency(progress.requiredPerWeek)} a week gets you to the goal`,

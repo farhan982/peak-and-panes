@@ -2,7 +2,14 @@ import * as state from '../state.js';
 import * as domain from '../domain.js';
 import { icon } from '../icons.js';
 import { buildScreen } from './header.js';
-import { esc, openNewQuoteModal, openNewJobModal, openJobSheet, openQuoteSheet } from './modals.js';
+import {
+  esc,
+  openNewQuoteModal,
+  openNewJobModal,
+  openJobSheet,
+  openQuoteSheet,
+  openGoalModal,
+} from './modals.js';
 
 function greeting(now = new Date()) {
   const hour = now.getHours();
@@ -16,8 +23,9 @@ export function renderDashboard(root) {
   const settings = state.getSettings();
   const now = new Date();
 
+  const name = (settings.userName || '').trim();
   const page = buildScreen(root, {
-    title: `${greeting(now)}, <span class="gold">Farhan</span>`,
+    title: name ? `${greeting(now)}, <span class="gold">${esc(name)}</span>` : greeting(now),
     subtitle: "Let's crush today.",
   });
 
@@ -32,14 +40,15 @@ export function renderDashboard(root) {
 }
 
 function buildGoalCard(s, settings, now) {
-  const g = domain.goalProgress(s.jobs, settings, now);
+  const g = domain.goalProgress(s.jobs, domain.activeGoal(settings), now);
+  if (!g) return buildNoGoalCard(s);
   const card = document.createElement('div');
   card.className = 'card goal-card interactive';
   card.setAttribute('role', 'button');
   card.setAttribute('tabindex', '0');
   card.innerHTML = `
     <div class="card-row">
-      <p class="card-title">${g.totalDays >= 80 ? '3-Month Goal' : 'Revenue Goal'}</p>
+      <p class="card-title">${g.achieved ? 'Goal reached' : g.totalDays >= 80 ? '3-Month Goal' : 'Revenue Goal'}</p>
       <p class="goal-target">${domain.formatCurrency(g.goal)}</p>
     </div>
     <div class="card-row" style="margin-top:6px">
@@ -55,7 +64,9 @@ function buildGoalCard(s, settings, now) {
       ).toFixed(1)}%"></div>
     </div>
     <div class="card-row goal-foot">
-      <span class="link-ish">${domain.formatPercent(g.pct)} to goal</span>
+      <span class="link-ish${g.achieved ? ' done' : ''}">${
+        g.achieved ? 'Goal reached — set the next one' : `${domain.formatPercent(g.pct)} to goal`
+      }</span>
       <span class="muted">${domain.plural(g.daysLeft, 'day')} left</span>
     </div>
     ${
@@ -76,6 +87,24 @@ function buildGoalCard(s, settings, now) {
       go();
     }
   });
+  return card;
+}
+
+function buildNoGoalCard(s) {
+  const card = document.createElement('div');
+  card.className = 'card';
+  card.innerHTML = `
+    <p class="card-title">No goal running</p>
+    <p class="card-sub">You have collected ${domain.formatCurrency(
+      domain.lifetimeCollected(s.jobs)
+    )} all time. Set a target to start tracking pace again.</p>
+  `;
+  const btn = document.createElement('button');
+  btn.className = 'btn-primary';
+  btn.style.marginTop = '14px';
+  btn.textContent = 'Set a goal';
+  btn.addEventListener('click', () => openGoalModal(null));
+  card.appendChild(btn);
   return card;
 }
 

@@ -68,6 +68,24 @@ Both treat **collected** money as the headline. Work that is booked but not yet
 paid for is shown alongside, never folded in — counting revenue you have not
 received towards a revenue goal is how people fool themselves.
 
+## Goals are a sequence
+
+`settings.goals` is a list, not one number. Each goal has its own window and
+counts only money collected inside it; reach one and you start the next, while
+**all-time revenue keeps climbing** on the Goal screen regardless.
+
+The boundary matters and is easy to get wrong. Each goal carries a `startAt`
+timestamp, not just a date: a goal that begins today starts counting from *now*,
+not from midnight, or finishing one goal and starting the next on the same day
+would count that morning's takings towards both. Starting a new goal also
+stamps `closedAt` on every earlier goal, including one already reached, so
+money earned afterwards cannot keep accruing to a goal that is over.
+
+Reaching the target stamps `achievedAt` but leaves the goal running, so the
+screen can show that it was hit; it only retires when the next goal starts.
+Achievement is re-checked when money lands *and* when a goal is edited, since
+lowering a target can put an already-collected sum over the line.
+
 ## What is not built yet
 
 - Photos, review and referral prompts on job completion. Editing or deleting a

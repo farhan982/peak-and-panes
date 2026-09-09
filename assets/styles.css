@@ -1518,3 +1518,15 @@ button {
   font-weight: 600;
   min-width: 0;
 }
+
+.link-ish.done {
+  color: var(--green);
+}
+
+.past-goal {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 0;
+  border-top: 1px solid var(--line);
+}

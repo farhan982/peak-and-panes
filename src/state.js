@@ -6,8 +6,9 @@ import {
   loadSettings,
   saveSettings,
   clearAllData,
+  newGoal,
 } from './storage.js';
-import { activeSession as findActiveSession } from './domain.js';
+import { activeSession as findActiveSession, activeGoal, goalProgress } from './domain.js';
 
 let state = loadState();
 let settings = loadSettings();
@@ -49,9 +50,67 @@ export function importBackup({ data, settings: incoming }) {
   saveState(state);
   if (incoming) {
     settings = { ...settings, ...incoming };
+    if (!Array.isArray(settings.goals) || !settings.goals.length) {
+      settings.goals = [newGoal({})];
+    }
     saveSettings(settings);
   }
+  stampGoalIfAchieved();
   notify();
+}
+
+// --- Goals -----------------------------------------------------------------
+
+export function getActiveGoal() {
+  return activeGoal(settings);
+}
+
+export function createGoal(fields) {
+  const goal = newGoal(fields);
+  const now = new Date().toISOString();
+  // Only one goal runs at a time. Every earlier goal has its window closed at
+  // this moment — including one already reached — or money earned afterwards
+  // would keep counting towards a goal that is over.
+  settings.goals = settings.goals.map((g) =>
+    g.closedAt ? g : { ...g, status: g.achievedAt ? 'achieved' : 'closed', closedAt: now }
+  );
+  settings.goals.push(goal);
+  saveSettings(settings);
+  notify();
+  return goal;
+}
+
+export function updateGoal(goalId, patch) {
+  settings.goals = settings.goals.map((g) => (g.id === goalId ? { ...g, ...patch } : g));
+  saveSettings(settings);
+  // Lowering the target can put an already-collected sum over the line, so
+  // achievement has to be re-checked here as well as when money arrives.
+  stampGoalIfAchieved();
+  notify();
+}
+
+export function closeGoal(goalId) {
+  const goal = settings.goals.find((g) => g.id === goalId);
+  if (!goal || goal.closedAt) return;
+  updateGoal(goalId, {
+    status: goal.achievedAt ? 'achieved' : 'closed',
+    closedAt: new Date().toISOString(),
+  });
+}
+
+// Stamps the moment a goal is first met, so the history can say how long it
+// took. Called wherever money lands rather than during a render, because it
+// is an event, not a derived value.
+function stampGoalIfAchieved() {
+  const goal = activeGoal(settings);
+  if (!goal || goal.achievedAt) return;
+  const progress = goalProgress(state.jobs, goal);
+  if (progress && progress.achieved) {
+    settings.goals = settings.goals.map((g) =>
+      g.id === goal.id ? { ...g, achievedAt: new Date().toISOString() } : g
+    );
+    saveSettings(settings);
+  }
 }
 
 export function resetAllData() {
@@ -396,6 +455,7 @@ export function completeJob(jobId, { paymentReceived, paymentMethod }) {
   job.completedAt = new Date().toISOString();
   job.paymentReceived = Boolean(paymentReceived);
   job.paymentMethod = paymentReceived ? paymentMethod || 'Other' : null;
+  stampGoalIfAchieved();
   notify();
 }
 
@@ -406,6 +466,7 @@ export function recordPayment(jobId, paymentMethod) {
   if (!job) return;
   job.paymentReceived = true;
   job.paymentMethod = paymentMethod || 'Other';
+  stampGoalIfAchieved();
   notify();
 }
 

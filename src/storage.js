@@ -40,29 +40,63 @@ export function emptyState() {
 
 const DEFAULT_SETTINGS = {
   currency: 'CAD',
-  goalAmount: 20000,
-  goalStart: null, // ISO date; set on first run below
-  goalEnd: null,
-  weeklyTarget: 2500,
+  userName: '',
+  // Goals are a sequence, not one number: each has its own window, and
+  // progress counts only money collected inside it. Lifetime revenue is
+  // tracked separately so nothing is lost when one goal rolls into the next.
+  goals: [],
   lastBackupAt: null,
 };
+
+export function newGoal({ amount, weeklyTarget, startDate, endDate }) {
+  const start = startDate ? new Date(`${startDate}T00:00:00`) : new Date();
+  const end = endDate ? new Date(`${endDate}T00:00:00`) : new Date(start.getTime());
+  if (!endDate) end.setDate(end.getDate() + 90);
+  const startDay = start.toISOString().slice(0, 10);
+  const today = new Date().toISOString().slice(0, 10);
+  return {
+    id: createId(),
+    amount: amount || 20000,
+    weeklyTarget: weeklyTarget || 2500,
+    startDate: startDay,
+    // The exact moment money starts counting. When a goal begins today it is
+    // *now*, not midnight — otherwise finishing one goal and starting the next
+    // on the same day would carry this morning's takings into both.
+    startAt: startDay === today ? new Date().toISOString() : `${startDay}T00:00:00.000Z`,
+    endDate: end.toISOString().slice(0, 10),
+    status: 'active',
+    achievedAt: null,
+    closedAt: null,
+    createdAt: new Date().toISOString(),
+  };
+}
 
 export function loadSettings() {
   try {
     const raw = localStorage.getItem(SETTINGS_KEY);
     const saved = raw ? JSON.parse(raw) : {};
     const settings = { ...DEFAULT_SETTINGS, ...saved };
-    if (!settings.goalStart || !settings.goalEnd) {
-      const start = new Date();
-      const end = new Date(start.getTime());
-      end.setDate(end.getDate() + 90);
-      settings.goalStart = start.toISOString().slice(0, 10);
-      settings.goalEnd = end.toISOString().slice(0, 10);
+    if (!Array.isArray(settings.goals)) settings.goals = [];
+
+    // Carry the single fixed goal from before goals were a sequence.
+    if (!settings.goals.length) {
+      settings.goals = [
+        newGoal({
+          amount: settings.goalAmount,
+          weeklyTarget: settings.weeklyTarget,
+          startDate: settings.goalStart,
+          endDate: settings.goalEnd,
+        }),
+      ];
       saveSettings(settings);
     }
+    delete settings.goalAmount;
+    delete settings.goalStart;
+    delete settings.goalEnd;
+    delete settings.weeklyTarget;
     return settings;
   } catch {
-    return { ...DEFAULT_SETTINGS };
+    return { ...DEFAULT_SETTINGS, goals: [newGoal({})] };
   }
 }
 

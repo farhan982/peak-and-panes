@@ -40,11 +40,17 @@ revenue **collected** and how much is still owed. Tap a **customer** for their r
 details, referral source, and every quote and job they have had, each opening
 its own sheet. From there they can be edited or deleted.
 
-Deleting a customer removes their quotes and jobs but **keeps the doors** —
-you still knocked that door, and erasing it would quietly rewrite your
-canvassing counts and conversion rates. The confirmation names what is being
-destroyed, including how much will come off collected revenue, because that
-figure feeds goal progress.
+Jobs and quotes can be edited or deleted from their own sheets too, and both
+have an undo for a mis-tap: **Reopen job** puts a completed job back on the
+schedule and clears any payment recorded with it; **Reopen quote** returns a
+settled quote to the open list.
+
+Deleting anything **keeps the doors** — you still knocked that door, and
+erasing it would quietly rewrite your canvassing counts and conversion rates.
+Deleting a customer cascades to their quotes and jobs; deleting a job or quote
+leaves the customer alone. Every confirmation names what is being destroyed,
+including how much will come off collected revenue, because that figure feeds
+goal progress.
 
 **Addresses fill themselves in.** The first house of a session comes from GPS;
 after that each outcome you log leaves the *next* house already in the field,

@@ -473,6 +473,61 @@ export function createJobDirect({ name, phone, email, address, service, amount, 
   return job;
 }
 
+export function updateJob(jobId, fields) {
+  const job = state.jobs.find((j) => j.id === jobId);
+  if (!job) return;
+  Object.assign(job, fields);
+  // Changing a price can push collected revenue over the goal line.
+  stampGoalIfAchieved();
+  notify();
+}
+
+// Undo for a mis-tapped "Mark complete". The job goes back on the schedule
+// and any payment recorded with it is cleared, since it was never really made.
+export function reopenJob(jobId) {
+  const job = state.jobs.find((j) => j.id === jobId);
+  if (!job) return;
+  job.status = 'scheduled';
+  job.completedAt = null;
+  job.paymentReceived = false;
+  job.paymentMethod = null;
+  notify();
+}
+
+// The door that produced the job is kept and unlinked: you still booked it
+// there, and removing it would rewrite your conversion rates.
+export function deleteJob(jobId) {
+  state.jobs = state.jobs.filter((j) => j.id !== jobId);
+  state.doors.forEach((door) => {
+    if (door.jobId === jobId) door.jobId = null;
+  });
+  notify();
+}
+
+export function updateQuote(quoteId, fields) {
+  const quote = state.quotes.find((q) => q.id === quoteId);
+  if (!quote) return;
+  Object.assign(quote, fields);
+  notify();
+}
+
+// Puts a settled quote back in the open list. Any job it created is left
+// alone — that is a separate record with its own consequences.
+export function reopenQuote(quoteId) {
+  const quote = state.quotes.find((q) => q.id === quoteId);
+  if (!quote) return;
+  quote.status = 'open';
+  notify();
+}
+
+export function deleteQuote(quoteId) {
+  state.quotes = state.quotes.filter((q) => q.id !== quoteId);
+  state.doors.forEach((door) => {
+    if (door.quoteId === quoteId) door.quoteId = null;
+  });
+  notify();
+}
+
 export function completeJob(jobId, { paymentReceived, paymentMethod }) {
   const job = state.jobs.find((j) => j.id === jobId);
   if (!job) return;

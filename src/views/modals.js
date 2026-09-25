@@ -377,25 +377,131 @@ export function openJobSheet(jobId) {
 
     const actions = sheet.querySelector('#job-actions');
     if (!done) {
-      const complete = document.createElement('button');
-      complete.className = 'btn-primary';
-      complete.textContent = 'Mark complete';
-      complete.addEventListener('click', () => {
-        close();
-        openCompleteJobSheet(job.id);
-      });
-      actions.appendChild(complete);
+      actions.appendChild(
+        button('btn-primary', 'Mark complete', () => {
+          close();
+          openCompleteJobSheet(job.id);
+        })
+      );
     } else if (!job.paymentReceived) {
-      const pay = document.createElement('button');
-      pay.className = 'btn-primary';
-      pay.textContent = 'Record payment';
-      pay.addEventListener('click', () => {
-        close();
-        openPaymentSheet(job.id);
-      });
-      actions.appendChild(pay);
+      actions.appendChild(
+        button('btn-primary', 'Record payment', () => {
+          close();
+          openPaymentSheet(job.id);
+        })
+      );
     }
+
+    const secondary = document.createElement('div');
+    secondary.className = 'btn-row';
+    secondary.style.marginTop = '10px';
+    secondary.appendChild(
+      button('btn-secondary', 'Edit job', () => {
+        close();
+        openEditJobModal(job.id);
+      })
+    );
+    if (done) {
+      secondary.appendChild(
+        button('btn-secondary', 'Reopen job', () => {
+          const wording = job.paymentReceived
+            ? `Put this job back on the schedule? The ${domain.formatCurrency(
+                job.amount
+              )} payment recorded against it is cleared, and comes off your collected revenue.`
+            : 'Put this job back on the schedule?';
+          if (window.confirm(wording)) {
+            state.reopenJob(job.id);
+            close();
+          }
+        })
+      );
+    }
+    actions.appendChild(secondary);
+
+    actions.appendChild(
+      button('btn-danger', 'Delete job', () => {
+        let message = `Delete this ${domain.formatCurrency(job.amount)} job for ${
+          customer ? customer.name : 'this customer'
+        }?`;
+        if (job.paymentReceived) {
+          message += `\n\n${domain.formatCurrency(job.amount)} will come off your collected revenue.`;
+        }
+        message += `\n\n${
+          customer ? customer.name : 'The customer'
+        } is kept, along with any door you logged. This cannot be undone.`;
+        if (window.confirm(message)) {
+          state.deleteJob(job.id);
+          close();
+        }
+      }, { marginTop: '10px' })
+    );
   });
+}
+
+function button(className, label, onClick, style = {}) {
+  const btn = document.createElement('button');
+  btn.className = className;
+  btn.textContent = label;
+  Object.assign(btn.style, style);
+  btn.addEventListener('click', onClick);
+  return btn;
+}
+
+export function openEditJobModal(jobId) {
+  const job = state.getJobs().find((j) => j.id === jobId);
+  if (!job) return;
+  openSheet((sheet, close) => {
+    const scheduled = job.scheduledAt ? toLocalInput(job.scheduledAt) : nowLocalDateTime();
+    sheet.innerHTML = `
+      <p class="sheet-title">Edit job</p>
+      <p class="sheet-sub">${
+        job.paymentReceived
+          ? 'This job is paid — changing the price changes your collected revenue.'
+          : 'The customer and any door logged for it stay as they are.'
+      }</p>
+      <div class="field">
+        <label>Service</label>
+        <div class="chip-row" id="e-services"></div>
+      </div>
+      <div class="field">
+        <label>Price</label>
+        <div class="input-prefix">
+          <span class="prefix-symbol">${domain.currencySymbol()}</span>
+          <input type="number" id="e-amount" inputmode="decimal" min="0" step="1" value="${job.amount || ''}" />
+        </div>
+      </div>
+      <div class="field">
+        <label>Scheduled for</label>
+        <input type="datetime-local" id="e-when" value="${scheduled}" />
+      </div>
+      <div class="field">
+        <label>Notes</label>
+        <textarea id="e-note">${esc(job.note || '')}</textarea>
+      </div>
+      <button class="btn-primary" id="e-save">Save changes</button>
+    `;
+    const getService = serviceChips(sheet, '#e-services', job.service);
+    sheet.querySelector('#e-save').addEventListener('click', () => {
+      const amount = parseFloat(sheet.querySelector('#e-amount').value);
+      const when = sheet.querySelector('#e-when').value;
+      state.updateJob(jobId, {
+        service: getService(),
+        amount: amount > 0 ? amount : 0,
+        scheduledAt: when ? new Date(when).toISOString() : null,
+        note: sheet.querySelector('#e-note').value.trim(),
+      });
+      close();
+    });
+  });
+}
+
+// datetime-local wants local wall-clock time, not the stored UTC string.
+function toLocalInput(iso) {
+  const d = new Date(iso);
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(
+    d.getMinutes()
+  )}`;
 }
 
 function paymentChips(container) {
@@ -468,11 +574,15 @@ export function openQuoteSheet(quoteId) {
   const quote = state.getQuotes().find((q) => q.id === quoteId);
   if (!quote) return;
   const customer = state.getCustomer(quote.customerId);
+  const open = quote.status === 'open';
+  const STATUS = { open: ['Open', 'gold'], accepted: ['Accepted', 'green'], declined: ['Declined', 'orange'] };
+  const [statusLabel, statusTone] = STATUS[quote.status] || STATUS.open;
 
   openSheet((sheet, close) => {
     sheet.innerHTML = `
       <p class="sheet-title">${esc(customer ? customer.name : 'Customer')}</p>
       <p class="sheet-sub">${esc(customer && customer.address ? customer.address : 'No address on file')}</p>
+      <span class="pill ${statusTone}" style="margin-bottom:14px">${statusLabel}</span>
       ${linkActions(customer)}
       <div class="card">
         ${detailLine('Service', esc(quote.service))}
@@ -484,29 +594,117 @@ export function openQuoteSheet(quoteId) {
         <label>Schedule the job for</label>
         <input type="datetime-local" id="q-when" value="${nowLocalDateTime()}" />
       </div>
-      <button class="btn-primary" id="accept">Mark accepted</button>
-      <button class="btn-secondary" id="decline" style="margin-top:10px">Mark declined</button>
+      <div id="quote-actions"></div>
     `;
 
-    // First tap reveals the date, second confirms — so a stray tap on
-    // "accepted" can't silently put a job on the calendar.
-    const when = sheet.querySelector('#won-when');
-    const acceptBtn = sheet.querySelector('#accept');
-    acceptBtn.addEventListener('click', () => {
-      if (when.hidden) {
-        when.hidden = false;
-        acceptBtn.textContent = 'Book this job';
-        return;
-      }
-      const value = sheet.querySelector('#q-when').value;
-      state.acceptQuote(quoteId, value ? new Date(value).toISOString() : null);
-      close();
-    });
-    sheet.querySelector('#decline').addEventListener('click', () => {
-      if (window.confirm('Mark this quote declined? It will leave your open quotes.')) {
-        state.declineQuote(quoteId);
+    const actions = sheet.querySelector('#quote-actions');
+
+    if (open) {
+      // First tap reveals the date, second confirms — so a stray tap on
+      // "accepted" can't silently put a job on the calendar.
+      const when = sheet.querySelector('#won-when');
+      const acceptBtn = button('btn-primary', 'Mark accepted', () => {
+        if (when.hidden) {
+          when.hidden = false;
+          acceptBtn.textContent = 'Book this job';
+          return;
+        }
+        const value = sheet.querySelector('#q-when').value;
+        state.acceptQuote(quoteId, value ? new Date(value).toISOString() : null);
         close();
-      }
+      });
+      actions.appendChild(acceptBtn);
+      actions.appendChild(
+        button('btn-secondary', 'Mark declined', () => {
+          if (window.confirm('Mark this quote declined? It will leave your open quotes.')) {
+            state.declineQuote(quoteId);
+            close();
+          }
+        }, { marginTop: '10px' })
+      );
+    }
+
+    const secondary = document.createElement('div');
+    secondary.className = 'btn-row';
+    secondary.style.marginTop = '10px';
+    secondary.appendChild(
+      button('btn-secondary', 'Edit quote', () => {
+        close();
+        openEditQuoteModal(quoteId);
+      })
+    );
+    if (!open) {
+      secondary.appendChild(
+        button('btn-secondary', 'Reopen quote', () => {
+          const wording =
+            quote.status === 'accepted'
+              ? 'Put this quote back in your open list? The job it created stays on your schedule — delete that separately if it is not happening.'
+              : 'Put this quote back in your open list?';
+          if (window.confirm(wording)) {
+            state.reopenQuote(quoteId);
+            close();
+          }
+        })
+      );
+    }
+    actions.appendChild(secondary);
+
+    actions.appendChild(
+      button('btn-danger', 'Delete quote', () => {
+        const message = `Delete this ${domain.formatCurrency(quote.amount)} quote for ${
+          customer ? customer.name : 'this customer'
+        }?\n\n${
+          customer ? customer.name : 'The customer'
+        } is kept, along with any door you logged${
+          quote.status === 'accepted' ? ', and the job it created stays on your schedule' : ''
+        }. This cannot be undone.`;
+        if (window.confirm(message)) {
+          state.deleteQuote(quoteId);
+          close();
+        }
+      }, { marginTop: '10px' })
+    );
+  });
+}
+
+export function openEditQuoteModal(quoteId) {
+  const quote = state.getQuotes().find((q) => q.id === quoteId);
+  if (!quote) return;
+  openSheet((sheet, close) => {
+    sheet.innerHTML = `
+      <p class="sheet-title">Edit quote</p>
+      <p class="sheet-sub">The customer and any door logged for it stay as they are.</p>
+      <div class="field">
+        <label>Service</label>
+        <div class="chip-row" id="eq-services"></div>
+      </div>
+      <div class="field">
+        <label>Quote amount</label>
+        <div class="input-prefix">
+          <span class="prefix-symbol">${domain.currencySymbol()}</span>
+          <input type="number" id="eq-amount" inputmode="decimal" min="0" step="1" value="${quote.amount || ''}" />
+        </div>
+      </div>
+      <div class="field">
+        <label>Follow up on</label>
+        <input type="date" id="eq-followup" value="${quote.followUpDate || ''}" />
+      </div>
+      <div class="field">
+        <label>Notes</label>
+        <textarea id="eq-note">${esc(quote.note || '')}</textarea>
+      </div>
+      <button class="btn-primary" id="eq-save">Save changes</button>
+    `;
+    const getService = serviceChips(sheet, '#eq-services', quote.service);
+    sheet.querySelector('#eq-save').addEventListener('click', () => {
+      const amount = parseFloat(sheet.querySelector('#eq-amount').value);
+      state.updateQuote(quoteId, {
+        service: getService(),
+        amount: amount > 0 ? amount : 0,
+        followUpDate: sheet.querySelector('#eq-followup').value || null,
+        note: sheet.querySelector('#eq-note').value.trim(),
+      });
+      close();
     });
   });
 }

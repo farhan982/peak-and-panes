@@ -35,6 +35,38 @@ export function isAnswered(door) {
 
 export const PAYMENT_METHODS = ['Cash', 'E-transfer', 'Credit', 'Other'];
 
+// Where the customer came from. Knowing which of these actually produces
+// revenue is the point of recording it at all.
+export const SOURCES = [
+  'Door knock',
+  'Customer referral',
+  'Repeat customer',
+  'Google',
+  'Facebook',
+  'Instagram',
+  'Flyer',
+  'Business card',
+  'Other',
+];
+
+// Everything attached to one customer, for their detail sheet and for the
+// delete confirmation — which has to be able to say what it is destroying.
+export function customerSummary(s, customerId) {
+  const quotes = s.quotes.filter((q) => q.customerId === customerId);
+  const jobs = s.jobs.filter((j) => j.customerId === customerId);
+  const doors = s.doors.filter((d) => d.customerId === customerId);
+  return {
+    quotes,
+    jobs,
+    doors,
+    openQuotes: quotes.filter((q) => q.status === 'open'),
+    quoteValue: quotes.reduce((sum, q) => sum + (q.amount || 0), 0),
+    booked: revenueBooked(jobs),
+    collected: revenueCollected(jobs),
+    completed: jobs.filter((j) => j.status === 'completed').length,
+  };
+}
+
 // Booked is what was agreed; collected is what was actually paid. The gap
 // between them is the money still owed, which is the number that matters at
 // the end of a week.
@@ -328,7 +360,9 @@ export function goalProgress(allJobs, goalRecord, now = new Date()) {
     goal,
     collected,
     outstanding,
-    achieved: goal > 0 && collected >= goal,
+    // Once stamped, a goal stays reached: deleting a record later should not
+    // rewrite the history of a target that was genuinely hit at the time.
+    achieved: Boolean(goalRecord.achievedAt) || (goal > 0 && collected >= goal),
     pct: goal ? collected / goal : 0,
     outstandingPct: goal ? outstanding / goal : 0,
     remaining,

@@ -626,6 +626,25 @@ button {
   box-shadow: none;
 }
 
+.btn-row {
+  display: flex;
+  gap: 10px;
+  align-items: stretch;
+}
+
+.btn-row > * {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Call and Navigate are anchors so they open the native apps; they still have
+   to look like the buttons beside them. */
+a.btn-primary,
+a.btn-secondary,
+a.btn-danger {
+  text-decoration: none;
+}
+
 .link-btn {
   color: var(--blue);
   font-size: 14px;

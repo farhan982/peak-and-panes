@@ -336,6 +336,11 @@ function detailLine(label, value) {
   return `<div class="card-row" style="padding:7px 0"><span class="muted">${label}</span><strong>${value}</strong></div>`;
 }
 
+// Free text does not belong in the right-hand column of a label/value row.
+function detailNote(value) {
+  return `<div style="padding:7px 0"><p class="muted" style="margin:0 0 2px">Notes</p><p style="margin:0;font-weight:600">${value}</p></div>`;
+}
+
 // tel: and a maps query both work without an API key, and open the native app
 // on a phone. Nothing here needs a network round trip of our own.
 function linkActions(customer) {
@@ -365,7 +370,7 @@ export function openJobSheet(jobId) {
         ${detailLine('Scheduled', job.scheduledAt ? domain.formatDateTime(job.scheduledAt) : 'Not scheduled')}
         ${done ? detailLine('Completed', domain.formatDateTime(job.completedAt)) : ''}
         ${done ? detailLine('Payment', job.paymentReceived ? esc(job.paymentMethod) : 'Not received') : ''}
-        ${job.note ? detailLine('Notes', esc(job.note)) : ''}
+        ${job.note ? detailNote(esc(job.note)) : ''}
       </div>
       <div id="job-actions"></div>
     `;
@@ -473,7 +478,7 @@ export function openQuoteSheet(quoteId) {
         ${detailLine('Service', esc(quote.service))}
         ${detailLine('Quoted', domain.formatCurrency(quote.amount))}
         ${detailLine('Follow up', quote.followUpDate ? domain.relativeDay(quote.followUpDate) : 'No date')}
-        ${quote.note ? detailLine('Notes', esc(quote.note)) : ''}
+        ${quote.note ? detailNote(esc(quote.note)) : ''}
       </div>
       <div class="field" id="won-when" hidden>
         <label>Schedule the job for</label>
@@ -714,6 +719,202 @@ export function openGoalModal(existing, onDone) {
       else state.createGoal(fields);
       close();
       if (onDone) onDone();
+    });
+  });
+}
+
+// --- Customer --------------------------------------------------------------
+
+const CUSTOMER_STATUS = {
+  lead: ['Lead', ''],
+  quote_sent: ['Quoted', 'blue'],
+  follow_up: ['Follow up', 'purple'],
+  booked: ['Booked', 'green'],
+  declined: ['Declined', 'orange'],
+};
+
+export function openCustomerSheet(customerId) {
+  const customer = state.getCustomer(customerId);
+  if (!customer) return;
+  const summary = domain.customerSummary(state.getState(), customerId);
+  const [label, tone] = CUSTOMER_STATUS[customer.status] || CUSTOMER_STATUS.lead;
+
+  openSheet((sheet, close) => {
+    sheet.innerHTML = `
+      <p class="sheet-title">${esc(customer.name)}</p>
+      <p class="sheet-sub">${esc(customer.address || 'No address on file')}</p>
+      <span class="pill ${tone}" style="margin-bottom:14px">${label}</span>
+      ${linkActions(customer)}
+      <div class="card">
+        ${detailLine('Collected', domain.formatCurrency(summary.collected))}
+        ${summary.booked !== summary.collected ? detailLine('Booked', domain.formatCurrency(summary.booked)) : ''}
+        ${customer.phone ? detailLine('Phone', esc(customer.phone)) : ''}
+        ${customer.email ? detailLine('Email', esc(customer.email)) : ''}
+        ${detailLine('Source', esc(customer.source || 'Other'))}
+        ${detailLine('Added', domain.formatDate(customer.createdAt))}
+        ${customer.note ? detailNote(esc(customer.note)) : ''}
+      </div>
+      <div id="cust-history"></div>
+      <button class="btn-secondary" id="cust-edit">Edit customer</button>
+      <button class="btn-danger" id="cust-delete" style="margin-top:10px">Delete customer</button>
+    `;
+
+    // Their history, newest first, each row opening its own sheet.
+    const history = [
+      ...summary.jobs.map((j) => ({ kind: 'job', at: j.completedAt || j.scheduledAt || j.createdAt, record: j })),
+      ...summary.quotes.map((q) => ({ kind: 'quote', at: q.createdAt, record: q })),
+    ].sort((a, b) => String(b.at).localeCompare(String(a.at)));
+
+    if (history.length) {
+      const card = document.createElement('div');
+      card.className = 'card';
+      card.innerHTML = '<p class="card-title" style="margin-bottom:6px">History</p>';
+      history.forEach(({ kind, record }) => {
+        const row = document.createElement('button');
+        row.className = 'agenda-row';
+        const done = kind === 'job' && record.status === 'completed';
+        row.innerHTML = `
+          <span class="agenda-main">
+            <span class="agenda-title">${esc(record.service)}</span>
+            <span class="agenda-sub">${
+              kind === 'job'
+                ? done
+                  ? `Completed ${domain.formatDate(record.completedAt)}`
+                  : `Scheduled ${record.scheduledAt ? domain.formatDate(record.scheduledAt) : '—'}`
+                : `Quoted ${domain.formatDate(record.createdAt)}`
+            }</span>
+          </span>
+          <span class="row-right">
+            <span class="row-amount">${domain.formatCurrency(record.amount)}</span>
+            <span class="pill ${
+              kind === 'job' ? (record.paymentReceived ? 'green' : 'blue') : record.status === 'open' ? 'gold' : ''
+            }">${
+              kind === 'job'
+                ? record.paymentReceived
+                  ? 'Paid'
+                  : done
+                  ? 'Unpaid'
+                  : 'Scheduled'
+                : record.status === 'open'
+                ? 'Open'
+                : record.status === 'accepted'
+                ? 'Accepted'
+                : 'Declined'
+            }</span>
+          </span>
+        `;
+        row.addEventListener('click', () => {
+          close();
+          if (kind === 'job') openJobSheet(record.id);
+          else openQuoteSheet(record.id);
+        });
+        card.appendChild(row);
+      });
+      sheet.querySelector('#cust-history').appendChild(card);
+    }
+
+    sheet.querySelector('#cust-edit').addEventListener('click', () => {
+      close();
+      openEditCustomerModal(customerId);
+    });
+
+    sheet.querySelector('#cust-delete').addEventListener('click', () => {
+      // Deleting a paid job quietly lowers collected revenue and can change
+      // goal progress, so the confirmation names the money involved.
+      const parts = [];
+      if (summary.quotes.length) {
+        parts.push(`${domain.plural(summary.quotes.length, 'quote')} worth ${domain.formatCurrency(summary.quoteValue)}`);
+      }
+      if (summary.jobs.length) {
+        parts.push(`${domain.plural(summary.jobs.length, 'job')} worth ${domain.formatCurrency(summary.booked)}`);
+      }
+      let message = `Delete ${customer.name}?`;
+      if (parts.length) message += `\n\nThis also removes ${parts.join(' and ')}.`;
+      if (summary.collected) {
+        message += `\n\n${domain.formatCurrency(summary.collected)} will come off your collected revenue.`;
+      }
+      if (summary.doors.length) {
+        message += `\n\nThe ${domain.plural(summary.doors.length, 'door')} you knocked stays in your canvassing history.`;
+      }
+      message += '\n\nThis cannot be undone.';
+      if (window.confirm(message)) {
+        state.deleteCustomer(customerId);
+        close();
+      }
+    });
+  });
+}
+
+export function openEditCustomerModal(customerId) {
+  const customer = state.getCustomer(customerId);
+  if (!customer) return;
+  openSheet((sheet, close) => {
+    sheet.innerHTML = `
+      <p class="sheet-title">Edit customer</p>
+      <p class="sheet-sub">Their quotes and jobs stay attached.</p>
+      <div class="field">
+        <label>Name</label>
+        <input type="text" id="c-name" value="${esc(customer.name)}" />
+      </div>
+      <div class="field">
+        <label>Phone</label>
+        <input type="tel" id="c-phone" inputmode="tel" value="${esc(customer.phone || '')}" placeholder="416 555 0199" />
+      </div>
+      <div class="field">
+        <label>Email</label>
+        <input type="email" id="c-email" inputmode="email" value="${esc(customer.email || '')}" placeholder="name@email.com" />
+      </div>
+      <div class="field">
+        <label>Address</label>
+        <input type="text" id="c-address" value="${esc(customer.address || '')}" placeholder="123 Pinecrest Ave" />
+      </div>
+      <div class="field">
+        <label>Found you through</label>
+        <div class="chip-row" id="c-sources"></div>
+      </div>
+      <div class="field">
+        <label>Notes</label>
+        <textarea id="c-note" placeholder="Back gate code 4417.">${esc(customer.note || '')}</textarea>
+      </div>
+      <button class="btn-primary" id="c-save">Save changes</button>
+    `;
+
+    // A source saved before this list existed is kept as an option rather than
+    // silently reassigned.
+    const options = domain.SOURCES.includes(customer.source || '')
+      ? domain.SOURCES
+      : [customer.source, ...domain.SOURCES].filter(Boolean);
+    let selected = customer.source || 'Other';
+    const row = sheet.querySelector('#c-sources');
+    options.forEach((source) => {
+      const chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = 'chip' + (source === selected ? ' active' : '');
+      chip.textContent = source;
+      chip.addEventListener('click', () => {
+        selected = source;
+        row.querySelectorAll('.chip').forEach((c) => c.classList.remove('active'));
+        chip.classList.add('active');
+      });
+      row.appendChild(chip);
+    });
+
+    const nameInput = sheet.querySelector('#c-name');
+    sheet.querySelector('#c-save').addEventListener('click', () => {
+      const name = nameInput.value.trim();
+      if (!name) {
+        nameInput.focus();
+        return;
+      }
+      state.updateCustomer(customerId, {
+        name,
+        phone: sheet.querySelector('#c-phone').value.trim(),
+        email: sheet.querySelector('#c-email').value.trim(),
+        address: sheet.querySelector('#c-address').value.trim(),
+        source: selected,
+        note: sheet.querySelector('#c-note').value.trim(),
+      });
+      close();
     });
   });
 }

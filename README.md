@@ -36,8 +36,15 @@ log every door with one tap:
 schedules the job and carries the customer over) or **declined**. Tap a job to see it, call or
 navigate to the customer, and mark it complete with a payment method — or
 complete it unpaid and record the payment later. The Completed tab shows
-revenue **collected** and how much is still owed. **Customers** is a read-only
-list of everyone whose name you took at a door.
+revenue **collected** and how much is still owed. Tap a **customer** for their record: collected and booked totals, contact
+details, referral source, and every quote and job they have had, each opening
+its own sheet. From there they can be edited or deleted.
+
+Deleting a customer removes their quotes and jobs but **keeps the doors** —
+you still knocked that door, and erasing it would quietly rewrite your
+canvassing counts and conversion rates. The confirmation names what is being
+destroyed, including how much will come off collected revenue, because that
+figure feeds goal progress.
 
 **Addresses fill themselves in.** The first house of a session comes from GPS;
 after that each outcome you log leaves the *next* house already in the field,
@@ -51,8 +58,8 @@ before, or offering to create one named after where you are. From then on every
 door you log is stamped with coordinates, and the end-of-session summary lists
 the streets you actually covered, so none of it has to be typed up afterwards.
 
-**Settings** (gear, top left) holds the revenue goal, backup/restore,
-location status and delete-all-data.
+**Settings** (gear, top left) holds your name, the revenue goal,
+backup/restore, location status and delete-all-data.
 
 **Dashboard** answers "how is the business doing right now": goal progress,
 this week's revenue against last week's, open quotes, jobs booked, doors

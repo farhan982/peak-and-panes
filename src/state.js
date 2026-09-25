@@ -289,6 +289,31 @@ function addCustomer(fields) {
   return customer;
 }
 
+export function updateCustomer(customerId, fields) {
+  const customer = getCustomer(customerId);
+  if (!customer) return;
+  Object.assign(customer, fields);
+  notify();
+}
+
+// Removes the customer and everything quoted or booked for them. Doors are
+// kept but unlinked: you still knocked that door, and erasing it would quietly
+// rewrite your canvassing counts and conversion rates.
+export function deleteCustomer(customerId) {
+  state.customers = state.customers.filter((c) => c.id !== customerId);
+  state.quotes = state.quotes.filter((q) => q.customerId !== customerId);
+  state.jobs = state.jobs.filter((j) => j.customerId !== customerId);
+  state.doors.forEach((door) => {
+    if (door.customerId === customerId) {
+      door.customerId = null;
+      door.quoteId = null;
+      door.jobId = null;
+      door.createdCustomer = false;
+    }
+  });
+  notify();
+}
+
 export function getQuotes() {
   return state.quotes;
 }

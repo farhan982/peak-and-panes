@@ -2,7 +2,7 @@ import * as state from '../state.js';
 import * as domain from '../domain.js';
 import { icon } from '../icons.js';
 import { buildScreen } from './header.js';
-import { esc } from './modals.js';
+import { esc, openCustomerSheet } from './modals.js';
 
 const STATUS_LABELS = {
   lead: ['Lead', ''],
@@ -48,8 +48,9 @@ export function renderCustomers(root) {
     if (theirQuotes.length) parts.push(domain.plural(theirQuotes.length, 'quote'));
     if (theirJobs.length) parts.push(domain.plural(theirJobs.length, 'job'));
 
-    const row = document.createElement('div');
+    const row = document.createElement('button');
     row.className = 'row';
+    row.addEventListener('click', () => openCustomerSheet(customer.id));
     row.innerHTML = `
       <div class="row-main">
         <p class="row-title">${esc(customer.name)}</p>

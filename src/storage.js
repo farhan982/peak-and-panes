@@ -1,14 +1,14 @@
 const KEY = 'peak-panes-state-v1';
 const SETTINGS_KEY = 'peak-panes-settings-v1';
 
-const EMPTY_STATE = {
-  territories: [],
-  sessions: [],
-  doors: [],
-  customers: [],
-  quotes: [],
-  jobs: [],
-};
+const COLLECTIONS = ['territories', 'sessions', 'doors', 'customers', 'quotes', 'jobs'];
+
+// Always a fresh object with fresh arrays. Spreading a shared constant here
+// handed out the same arrays every time, so records logged after a reset were
+// pushed into the constant itself and came back on the next reset.
+function emptyCollections() {
+  return COLLECTIONS.reduce((out, key) => ({ ...out, [key]: [] }), {});
+}
 
 // Every collection is a flat top-level array keyed by id. Doors point at a
 // session and a territory; quotes and jobs point at a customer. Nothing is
@@ -16,17 +16,17 @@ const EMPTY_STATE = {
 export function loadState() {
   try {
     const raw = localStorage.getItem(KEY);
-    if (!raw) return { ...EMPTY_STATE };
+    if (!raw) return emptyCollections();
     const parsed = JSON.parse(raw);
     // Merge over the empty shape so a state written by an older build that
     // lacked a collection still loads instead of throwing on .filter().
-    const next = { ...EMPTY_STATE };
-    Object.keys(EMPTY_STATE).forEach((k) => {
+    const next = emptyCollections();
+    COLLECTIONS.forEach((k) => {
       if (Array.isArray(parsed[k])) next[k] = parsed[k];
     });
     return migrateVocabulary(next);
   } catch {
-    return { ...EMPTY_STATE };
+    return emptyCollections();
   }
 }
 
@@ -48,7 +48,7 @@ export function saveState(state) {
 }
 
 export function emptyState() {
-  return { ...EMPTY_STATE };
+  return emptyCollections();
 }
 
 const DEFAULT_SETTINGS = {

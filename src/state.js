@@ -149,15 +149,23 @@ export function updateTerritory(id, fields) {
   const territory = getTerritory(id);
   if (!territory) return;
   Object.assign(territory, fields);
+  if (fields.name) {
+    state.sessions.forEach((session) => {
+      if (session.territoryId === id) session.territoryName = fields.name;
+    });
+  }
   notify();
 }
 
 // Doors and sessions are kept — they are the record of work actually done, and
-// orphaning them would silently rewrite past revenue. The territory name is
-// denormalised onto each door at log time so history still reads correctly.
+// removing them would silently rewrite past revenue and conversion rates. The
+// territory name is denormalised onto each session, so history still reads.
 export function deleteTerritory(id) {
+  const running = findActiveSession(state);
+  if (running && running.territoryId === id) return false;
   state.territories = state.territories.filter((t) => t.id !== id);
   notify();
+  return true;
 }
 
 // --- Sessions --------------------------------------------------------------

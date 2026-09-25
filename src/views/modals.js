@@ -1116,3 +1116,111 @@ export function openEditCustomerModal(customerId) {
     });
   });
 }
+
+// --- Territory -------------------------------------------------------------
+
+export function openTerritorySheet(territoryId) {
+  const territory = state.getTerritory(territoryId);
+  if (!territory) return;
+  const s = state.getState();
+  const stats = domain.territoryStats(s, territoryId);
+  const visited = domain.lastVisited(s, territoryId);
+  const sessions = s.sessions.filter((x) => x.territoryId === territoryId).length;
+
+  openSheet((sheet, close) => {
+    sheet.innerHTML = `
+      <p class="sheet-title">${esc(territory.name)}</p>
+      <p class="sheet-sub">${esc(territory.area || 'No area set')}</p>
+      <div class="stat-card" style="margin-bottom:12px">
+        <div class="stat-cell"><p class="stat-name">Doors</p><p class="stat-num">${stats.knocked}</p></div>
+        <div class="stat-cell"><p class="stat-name">Answered</p><p class="stat-num">${stats.answered}</p></div>
+        <div class="stat-cell"><p class="stat-name">Quotes</p><p class="stat-num">${stats.quotes}</p></div>
+        <div class="stat-cell"><p class="stat-name">Jobs</p><p class="stat-num">${stats.jobs}</p></div>
+        <div class="stat-cell highlight"><p class="stat-name">Per door</p><p class="stat-num small">${domain.formatCurrency(
+          stats.revenuePerDoor
+        )}</p></div>
+      </div>
+      <div class="card">
+        ${detailLine('Revenue booked', domain.formatCurrency(stats.revenueBooked))}
+        ${detailLine('Answer rate', stats.knocked ? domain.formatPercent(stats.answered / stats.knocked) : '—')}
+        ${detailLine('Quote rate', stats.knocked ? domain.formatPercent(stats.quoteRate) : '—')}
+        ${detailLine(
+          'Revenue per hour',
+          stats.hours > 0.05 ? domain.formatCurrency(stats.revenueBooked / stats.hours) : '—'
+        )}
+        ${detailLine('Doors in territory', territory.doorTarget ? `${stats.knocked} of ${territory.doorTarget}` : 'Not set')}
+        ${detailLine('Sessions', sessions ? domain.plural(sessions, 'session') : 'None yet')}
+        ${detailLine('Last worked', visited ? domain.formatDate(visited) : 'Never')}
+      </div>
+      <div id="terr-actions"></div>
+    `;
+
+    const actions = sheet.querySelector('#terr-actions');
+    actions.appendChild(
+      button('btn-secondary', 'Edit territory', () => {
+        close();
+        openEditTerritoryModal(territoryId);
+      })
+    );
+    actions.appendChild(
+      button('btn-danger', 'Delete territory', () => {
+        let message = `Delete ${territory.name}?`;
+        if (stats.knocked) {
+          const one = stats.knocked === 1;
+          message += `\n\nThe ${domain.plural(stats.knocked, 'door')} you knocked there ${
+            one ? 'stays' : 'stay'
+          } in your history and still ${
+            one ? 'counts' : 'count'
+          } towards your funnel — only the territory and its ranking go.`;
+        }
+        message += '\n\nThis cannot be undone.';
+        if (!window.confirm(message)) return;
+        if (!state.deleteTerritory(territoryId)) {
+          window.alert('End the session running in this territory first.');
+          return;
+        }
+        close();
+      }, { marginTop: '10px' })
+    );
+  });
+}
+
+export function openEditTerritoryModal(territoryId) {
+  const territory = state.getTerritory(territoryId);
+  if (!territory) return;
+  openSheet((sheet, close) => {
+    sheet.innerHTML = `
+      <p class="sheet-title">Edit territory</p>
+      <p class="sheet-sub">Renaming it does not touch the doors already logged there.</p>
+      <div class="field">
+        <label>Name</label>
+        <input type="text" id="et-name" value="${esc(territory.name)}" />
+      </div>
+      <div class="field">
+        <label>Area (optional)</label>
+        <input type="text" id="et-area" value="${esc(territory.area || '')}" placeholder="Scarborough, ON" />
+      </div>
+      <div class="field">
+        <label>Doors in this territory (optional)</label>
+        <input type="number" id="et-doors" inputmode="numeric" min="1" step="1"
+          value="${territory.doorTarget || ''}" placeholder="85" />
+      </div>
+      <button class="btn-primary" id="et-save">Save changes</button>
+    `;
+    const nameInput = sheet.querySelector('#et-name');
+    sheet.querySelector('#et-save').addEventListener('click', () => {
+      const name = nameInput.value.trim();
+      if (!name) {
+        nameInput.focus();
+        return;
+      }
+      const doors = parseInt(sheet.querySelector('#et-doors').value, 10);
+      state.updateTerritory(territoryId, {
+        name,
+        area: sheet.querySelector('#et-area').value.trim(),
+        doorTarget: doors > 0 ? doors : null,
+      });
+      close();
+    });
+  });
+}

@@ -9,6 +9,7 @@ import {
   openBookedModal,
   openFollowUpModal,
   openSessionSummaryModal,
+  openTerritorySheet,
   esc,
 } from './modals.js';
 
@@ -182,31 +183,45 @@ function renderTerritoryPicker(root) {
     ranked.forEach(({ territory, stats }, i) => {
       const worked = stats.knocked > 0;
       const isSelected = territory.id === selectedTerritoryId;
-      const row = document.createElement('button');
-      row.className = 'row';
+      // Split row: the wide area selects, the dots open the territory itself.
+      // Nesting a button inside a button is invalid, hence the wrapper div.
+      const row = document.createElement('div');
+      row.className = 'row row-split';
       if (isSelected) row.style.boxShadow = '0 0 0 2px var(--blue), var(--shadow)';
-      row.innerHTML = `
-        <div class="rank-badge${worked && i === 0 ? ' top' : ''}">${worked ? i + 1 : '–'}</div>
-        <div class="row-main">
-          <p class="row-title">${esc(territory.name)}</p>
-          <p class="row-sub">${
+
+      const hit = document.createElement('button');
+      hit.className = 'row-hit';
+      hit.innerHTML = `
+        <span class="rank-badge${worked && i === 0 ? ' top' : ''}">${worked ? i + 1 : '–'}</span>
+        <span class="row-main">
+          <span class="row-title">${esc(territory.name)}</span>
+          <span class="row-sub">${
             worked
               ? `${domain.plural(stats.knocked, 'door')} · ${domain.plural(
                   stats.quotes,
                   'quote'
                 )} · ${domain.plural(stats.jobs, 'job')}`
               : esc(territory.area || 'Not worked yet')
-          }</p>
-        </div>
-        <div class="row-right">
-          <p class="row-amount">${worked ? domain.formatCurrency(stats.revenuePerDoor) : '—'}</p>
-          <p class="row-sub">per door</p>
-        </div>
+          }</span>
+        </span>
+        <span class="row-right">
+          <span class="row-amount">${worked ? domain.formatCurrency(stats.revenuePerDoor) : '—'}</span>
+          <span class="row-sub">per door</span>
+        </span>
       `;
-      row.addEventListener('click', () => {
+      hit.addEventListener('click', () => {
         selectedTerritoryId = territory.id;
         state.refresh();
       });
+      row.appendChild(hit);
+
+      const more = document.createElement('button');
+      more.className = 'row-more';
+      more.setAttribute('aria-label', `Manage ${territory.name}`);
+      more.innerHTML = icon('more', 18);
+      more.addEventListener('click', () => openTerritorySheet(territory.id));
+      row.appendChild(more);
+
       page.appendChild(row);
     });
   }

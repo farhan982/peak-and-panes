@@ -3,7 +3,7 @@ import * as domain from '../domain.js';
 import { icon } from '../icons.js';
 import { buildScreen } from './header.js';
 import { buildGoalChart } from './chart.js';
-import { esc, openGoalModal } from './modals.js';
+import { esc, openGoalModal, openTerritorySheet } from './modals.js';
 
 export function renderGoal(root) {
   const s = state.getState();
@@ -190,8 +190,9 @@ function buildTerritoryTable(s) {
     </div>
   `;
   ranked.forEach(({ territory, stats }, i) => {
-    const row = document.createElement('div');
+    const row = document.createElement('button');
     row.className = 'terr-row';
+    row.addEventListener('click', () => openTerritorySheet(territory.id));
     row.innerHTML = `
       <span class="rank-badge${i === 0 ? ' top' : ''}">${i + 1}</span>
       <span class="terr-name">${esc(territory.name)}${

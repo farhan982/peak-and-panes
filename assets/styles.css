@@ -1572,3 +1572,44 @@ a.btn-danger {
   font-size: 15.5px;
   font-weight: 650;
 }
+
+/* A row with two tap targets: the wide area, and a trailing icon button. */
+.row-split {
+  padding: 0;
+}
+
+.row-hit {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 4px 14px 14px;
+  text-align: left;
+}
+
+.row-hit .row-main {
+  display: block;
+  flex: 1;
+  min-width: 0;
+}
+
+.row-hit .row-title,
+.row-hit .row-sub,
+.row-hit .row-amount {
+  display: block;
+}
+
+.row-more {
+  flex: none;
+  align-self: stretch;
+  padding: 0 14px;
+  color: var(--dim);
+  display: grid;
+  place-items: center;
+}
+
+button.terr-row {
+  width: 100%;
+  text-align: left;
+}

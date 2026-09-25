@@ -2,7 +2,7 @@
 // connection the browser always gets current files, so a deploy takes effect
 // immediately. The cache only serves when the network is unreachable.
 // Bump CACHE_VERSION whenever PRECACHE changes.
-const CACHE_VERSION = 'peak-panes-v9';
+const CACHE_VERSION = 'peak-panes-v10';
 
 const PRECACHE = [
   './',

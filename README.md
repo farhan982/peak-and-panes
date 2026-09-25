@@ -45,12 +45,19 @@ have an undo for a mis-tap: **Reopen job** puts a completed job back on the
 schedule and clears any payment recorded with it; **Reopen quote** returns a
 settled quote to the open list.
 
+Territories have the same, reached from the dots on a row in the picker or by
+tapping one in the Goal screen's ranking. The sheet shows how that territory
+has actually performed — doors, answer and quote rates, revenue per door and
+per hour, sessions, last worked — before offering Edit and Delete. Renaming
+one carries into the session history, since a rename here is a correction. A
+territory cannot be deleted while a session is running in it.
+
 Deleting anything **keeps the doors** — you still knocked that door, and
 erasing it would quietly rewrite your canvassing counts and conversion rates.
-Deleting a customer cascades to their quotes and jobs; deleting a job or quote
-leaves the customer alone. Every confirmation names what is being destroyed,
-including how much will come off collected revenue, because that figure feeds
-goal progress.
+Deleting a customer cascades to their quotes and jobs; deleting a job, quote
+or territory leaves everything else alone. Every confirmation names what is
+being destroyed, including how much will come off collected revenue, because
+that figure feeds goal progress.
 
 **Addresses fill themselves in.** The first house of a session comes from GPS;
 after that each outcome you log leaves the *next* house already in the field,

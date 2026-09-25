@@ -479,27 +479,27 @@ export function openQuoteSheet(quoteId) {
         <label>Schedule the job for</label>
         <input type="datetime-local" id="q-when" value="${nowLocalDateTime()}" />
       </div>
-      <button class="btn-primary" id="won">Mark won</button>
-      <button class="btn-secondary" id="lost" style="margin-top:10px">Mark lost</button>
+      <button class="btn-primary" id="accept">Mark accepted</button>
+      <button class="btn-secondary" id="decline" style="margin-top:10px">Mark declined</button>
     `;
 
-    // First tap reveals the date, second confirms — so a stray tap on "won"
-    // can't silently put a job on the calendar.
+    // First tap reveals the date, second confirms — so a stray tap on
+    // "accepted" can't silently put a job on the calendar.
     const when = sheet.querySelector('#won-when');
-    const wonBtn = sheet.querySelector('#won');
-    wonBtn.addEventListener('click', () => {
+    const acceptBtn = sheet.querySelector('#accept');
+    acceptBtn.addEventListener('click', () => {
       if (when.hidden) {
         when.hidden = false;
-        wonBtn.textContent = 'Book this job';
+        acceptBtn.textContent = 'Book this job';
         return;
       }
       const value = sheet.querySelector('#q-when').value;
-      state.markQuoteWon(quoteId, value ? new Date(value).toISOString() : null);
+      state.acceptQuote(quoteId, value ? new Date(value).toISOString() : null);
       close();
     });
-    sheet.querySelector('#lost').addEventListener('click', () => {
-      if (window.confirm('Mark this quote as lost? It will leave your open quotes.')) {
-        state.markQuoteLost(quoteId);
+    sheet.querySelector('#decline').addEventListener('click', () => {
+      if (window.confirm('Mark this quote declined? It will leave your open quotes.')) {
+        state.declineQuote(quoteId);
         close();
       }
     });

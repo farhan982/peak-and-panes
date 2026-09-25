@@ -298,33 +298,61 @@ function buildLocationCard() {
   }
 
   const label = detected && detected.place ? geo.placeLabel(detected.place) : '';
+
+  // Before the first tap: an offer. After it: a readout. The button does not
+  // come back, because pressing it again would only repeat what is on screen.
+  if (!detected) {
+    card.innerHTML = `
+      <p class="card-title">Where are you?</p>
+      <p class="card-sub">${
+        detecting
+          ? 'Getting a fix…'
+          : "Find the neighbourhood you're standing in instead of picking it from the list."
+      }</p>
+    `;
+    const action = document.createElement('button');
+    action.className = 'btn-secondary';
+    action.style.marginTop = '12px';
+    action.disabled = detecting;
+    action.textContent = detecting ? 'Locating…' : 'Use my location';
+    action.addEventListener('click', detect);
+    card.appendChild(action);
+    return card;
+  }
+
+  const area = detected.place && detected.place.area ? detected.place.area : '';
+  const heading = detected.match
+    ? `You're in <strong>${esc(detected.match.territory.name)}</strong>`
+    : label
+    ? `You're on <strong>${esc(label)}</strong>`
+    : 'Position found';
+  // Inside a fix's own margin of error, a distance is noise — "0 m" reads as
+  // a measurement when it only means "close".
+  const proximity = !detected.match
+    ? ''
+    : detected.match.distance < 30
+    ? 'right where you last worked it'
+    : `about ${geo.formatDistance(detected.match.distance)} from where you last worked it`;
+  const detail = detected.match
+    ? [label, proximity].filter(Boolean).join(' · ')
+    : [area, 'no territory here yet'].filter(Boolean).join(' · ');
+
   card.innerHTML = `
-    <p class="card-title">Where are you?</p>
-    <p class="card-sub">${
-      detecting
-        ? 'Getting a fix…'
-        : detected
-        ? detected.match
-          ? `You're in <strong>${esc(detected.match.territory.name)}</strong>, about ${geo.formatDistance(
-              detected.match.distance
-            )} from where you last worked it.`
-          : label
-          ? `You're on <strong>${esc(label)}</strong>${
-              detected.place.area ? `, ${esc(detected.place.area)}` : ''
-            }. No territory here yet.`
-          : 'Got your position, but no territory here yet.'
-        : "Find the neighbourhood you're standing in instead of picking it from the list."
-    }</p>
+    <div class="locate-row">
+      <span class="locate-pin">${icon('navigate', 18)}</span>
+      <div class="row-main">
+        <p class="locate-title">${heading}</p>
+        <p class="card-sub">${esc(detail)}</p>
+      </div>
+    </div>
   `;
 
-  const action = document.createElement('button');
-  action.className = detected && !detected.match ? 'btn-primary' : 'btn-secondary';
-  action.style.marginTop = '12px';
-  action.disabled = detecting;
-
-  if (detected && !detected.match) {
-    action.textContent = label ? `Create territory here` : 'Create territory here';
-    action.addEventListener('click', () => {
+  if (!detected.match) {
+    const create = document.createElement('button');
+    create.className = 'btn-primary';
+    create.style.marginTop = '12px';
+    create.textContent = 'Create territory here';
+    create.addEventListener('click', () => {
       openNewTerritoryModal(
         (territory) => {
           selectedTerritoryId = territory.id;
@@ -338,34 +366,34 @@ function buildLocationCard() {
         }
       );
     });
-  } else {
-    action.textContent = detecting ? 'Locating…' : 'Use my location';
-    action.addEventListener('click', async () => {
-      detecting = true;
-      state.refresh();
-      const fix = await geo.getFix();
-      detecting = false;
-      if (!fix) {
-        detected = null;
-        state.refresh();
-        window.alert(geo.errorHint() || 'Could not get a location fix. Try again outdoors.');
-        return;
-      }
-      const match = locateTerritory(fix);
-      if (match) selectedTerritoryId = match.territory.id;
-      detected = { fix, match, place: geo.cachedPlace(fix.lat, fix.lng) };
-      state.refresh();
-      if (!detected.place) {
-        const place = await geo.resolvePlace(fix.lat, fix.lng);
-        if (place && detected && detected.fix === fix) {
-          detected.place = place;
-          state.refresh();
-        }
-      }
-    });
+    card.appendChild(create);
   }
-  card.appendChild(action);
+
   return card;
+}
+
+async function detect() {
+  detecting = true;
+  state.refresh();
+  const fix = await geo.getFix();
+  detecting = false;
+  if (!fix) {
+    detected = null;
+    state.refresh();
+    window.alert(geo.errorHint() || 'Could not get a location fix. Try again outdoors.');
+    return;
+  }
+  const match = locateTerritory(fix);
+  if (match) selectedTerritoryId = match.territory.id;
+  detected = { fix, match, place: geo.cachedPlace(fix.lat, fix.lng) };
+  state.refresh();
+  if (!detected.place) {
+    const place = await geo.resolvePlace(fix.lat, fix.lng);
+    if (place && detected && detected.fix === fix) {
+      detected.place = place;
+      state.refresh();
+    }
+  }
 }
 
 // ---------------------------------------------------------------------------

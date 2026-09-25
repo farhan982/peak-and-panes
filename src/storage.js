@@ -24,10 +24,23 @@ export function loadState() {
     Object.keys(EMPTY_STATE).forEach((k) => {
       if (Array.isArray(parsed[k])) next[k] = parsed[k];
     });
-    return next;
+    return migrateVocabulary(next);
   } catch {
     return { ...EMPTY_STATE };
   }
+}
+
+// Quotes were once "won"/"lost". The stored values were renamed to the terms
+// an estimate actually uses, so older records are translated on load.
+function migrateVocabulary(state) {
+  const quoteStatus = { won: 'accepted', lost: 'declined' };
+  state.quotes.forEach((q) => {
+    if (quoteStatus[q.status]) q.status = quoteStatus[q.status];
+  });
+  state.customers.forEach((c) => {
+    if (c.status === 'lost') c.status = 'declined';
+  });
+  return state;
 }
 
 export function saveState(state) {

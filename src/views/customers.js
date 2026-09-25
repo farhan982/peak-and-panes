@@ -6,9 +6,10 @@ import { esc } from './modals.js';
 
 const STATUS_LABELS = {
   lead: ['Lead', ''],
-  quote_sent: ['Quote sent', 'blue'],
+  quote_sent: ['Quoted', 'blue'],
   follow_up: ['Follow up', 'purple'],
   booked: ['Booked', 'green'],
+  declined: ['Declined', 'orange'],
 };
 
 export function renderCustomers(root) {

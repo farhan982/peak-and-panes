@@ -32,8 +32,8 @@ log every door with one tap:
 - Territories are ranked by **revenue per door**, so the picker answers "where
   should I canvass today".
 
-**Jobs closes the loop.** Tap an open quote to mark it **won** (which schedules
-the job and carries the customer over) or **lost**. Tap a job to see it, call or
+**Jobs closes the loop.** Tap an open quote to mark it **accepted** (which
+schedules the job and carries the customer over) or **declined**. Tap a job to see it, call or
 navigate to the customer, and mark it complete with a payment method — or
 complete it unpaid and record the payment later. The Completed tab shows
 revenue **collected** and how much is still owed. **Customers** is a read-only
@@ -67,6 +67,11 @@ each item derived from something the app can actually see.
 Both treat **collected** money as the headline. Work that is booked but not yet
 paid for is shown alongside, never folded in — counting revenue you have not
 received towards a revenue goal is how people fool themselves.
+
+Quote statuses are `open` / `accepted` / `declined`, and a customer whose only
+quote was declined is `declined` too. Records written under the earlier
+`won`/`lost` vocabulary are translated on load by `migrateVocabulary` in
+`storage.js`.
 
 ## Goals are a sequence
 

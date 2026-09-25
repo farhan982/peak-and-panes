@@ -470,12 +470,12 @@ export function recordPayment(jobId, paymentMethod) {
   notify();
 }
 
-// Winning a quote turns it into a scheduled job, carrying the customer over
+// An accepted quote turns into a scheduled job, carrying the customer over
 // rather than creating a second record for the same person.
-export function markQuoteWon(quoteId, scheduledAt) {
+export function acceptQuote(quoteId, scheduledAt) {
   const quote = state.quotes.find((q) => q.id === quoteId);
   if (!quote || quote.status !== 'open') return null;
-  quote.status = 'won';
+  quote.status = 'accepted';
   const job = {
     id: createId(),
     customerId: quote.customerId,
@@ -497,14 +497,14 @@ export function markQuoteWon(quoteId, scheduledAt) {
   return job;
 }
 
-export function markQuoteLost(quoteId) {
+export function declineQuote(quoteId) {
   const quote = state.quotes.find((q) => q.id === quoteId);
   if (!quote) return;
-  quote.status = 'lost';
+  quote.status = 'declined';
   const customer = getCustomer(quote.customerId);
-  // Only demote a customer who has nothing else going on.
+  // Only change a customer who has nothing else going on.
   if (customer && !state.jobs.some((j) => j.customerId === customer.id)) {
-    customer.status = 'lost';
+    customer.status = 'declined';
   }
   notify();
 }

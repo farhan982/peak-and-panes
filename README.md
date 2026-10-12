@@ -32,8 +32,13 @@ log every door with one tap:
 - End-of-session summary: duration, doors per hour, answer rate, quote value,
   revenue per door, and the verdict on the last block. A session with no doors
   logged is discarded rather than saved.
-- Territories are ranked by **revenue per door**, so the picker answers "where
-  should I canvass today".
+- Territories are ranked by **jobs actually finished**, so the picker answers
+  "where has the knocking turned into work". Doors measure effort; completed
+  jobs measure what the effort produced. Territory job counts are read from the
+  jobs themselves, not from doors tapped "Booked" — a quote accepted days later
+  still belongs to the territory it came from, and only the job record knows
+  whether the work got done. Revenue per door survives as a detail on the
+  territory sheet.
 
 **Jobs closes the loop.** Tap an open quote to mark it **accepted** (which
 schedules the job and carries the customer over) or **declined**. Tap a job to see it, call or
@@ -87,9 +92,13 @@ this week's revenue against last week's, open quotes, jobs booked, doors
 knocked, today's schedule, the doors-to-quotes-to-jobs funnel, and four quick
 actions.
 
+**Services** (`#/services`, reached from the Goal screen) breaks every job and
+quote down by the kind of work: jobs completed, revenue collected, average job
+value, and how many quotes for that service were accepted. All time.
+
 **Goal & Territories** answers "am I going to make it": collected against the
 target with a chart of actual versus the pace needed, territories ranked by
-revenue per door, the weekly target, and a short list of what to do next —
+**jobs completed**, the weekly target, and a short list of what to do next —
 each item derived from something the app can actually see.
 
 Both treat **collected** money as the headline. Work that is booked but not yet
@@ -100,6 +109,10 @@ Quote statuses are `open` / `accepted` / `declined`, and a customer whose only
 quote was declined is `declined` too. Records written under the earlier
 `won`/`lost` vocabulary are translated on load by `migrateVocabulary` in
 `storage.js`.
+
+The Dashboard carries a **backup reminder** when there is data at risk and no
+backup in 30 days (or none ever). Dismissing snoozes it for 7 days; downloading
+a backup silences it. A fresh install with no records is never nagged.
 
 ## Goals are a sequence
 

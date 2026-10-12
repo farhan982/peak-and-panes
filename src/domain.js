@@ -244,16 +244,38 @@ export function territoryTest(doors) {
 export function territoryStats(state, territoryId) {
   const doors = state.doors.filter((d) => d.territoryId === territoryId);
   const stats = doorStats(doors);
+  // Jobs are read from the jobs themselves, not from doors marked "booked":
+  // a quote accepted days later carries the territory across, and only the
+  // job record knows whether the work was actually finished.
+  const jobs = state.jobs.filter((j) => j.territoryId === territoryId);
+  const completed = jobs.filter((j) => j.status === 'completed');
+  const collected = revenueCollected(jobs);
   const ms = state.sessions
     .filter((s) => s.territoryId === territoryId && s.endedAt)
     .reduce((sum, s) => sum + elapsedMs(s), 0);
   return {
-    ...stats,
+    ...stats, // stats.jobs here is doors tapped "Booked", not finished work
+    jobsBooked: jobs.length,
+    jobsCompleted: completed.length,
+    collected,
     hours: ms / 3600000,
-    revenuePerDoor: revenuePerDoor(stats.revenueBooked, stats.knocked),
+    revenuePerDoor: revenuePerDoor(collected, stats.knocked),
     quoteRate: stats.knocked ? stats.quotes / stats.knocked : 0,
     closeRate: stats.quotes + stats.jobs ? stats.jobs / (stats.quotes + stats.jobs) : 0,
   };
+}
+
+// Ranked on finished work rather than doors knocked: doors measure effort,
+// completed jobs measure what the effort produced.
+export function rankedTerritories(s) {
+  return s.territories
+    .map((territory) => ({ territory, stats: territoryStats(s, territory.id) }))
+    .sort(
+      (a, b) =>
+        b.stats.jobsCompleted - a.stats.jobsCompleted ||
+        b.stats.collected - a.stats.collected ||
+        b.stats.knocked - a.stats.knocked
+    );
 }
 
 export function lastVisited(state, territoryId) {
@@ -429,6 +451,66 @@ export function cumulativeSeries(allJobs, goalRecord, now = new Date()) {
 }
 
 // ---------------------------------------------------------------------------
+// Backup reminder
+// ---------------------------------------------------------------------------
+
+const BACKUP_STALE_DAYS = 30;
+const SNOOZE_DAYS = 7;
+
+// Returns something only when there is real data at risk, so a brand new
+// install is never nagged.
+export function backupReminder(s, settings, now = new Date()) {
+  const records = s.doors.length + s.customers.length + s.quotes.length + s.jobs.length;
+  if (!records) return null;
+
+  const snoozed = settings.backupReminderSnoozedAt;
+  if (snoozed && daysBetween(new Date(snoozed), now) < SNOOZE_DAYS) return null;
+
+  if (!settings.lastBackupAt) return { neverBackedUp: true, daysSince: null, records };
+  const daysSince = daysBetween(new Date(settings.lastBackupAt), now);
+  if (daysSince < BACKUP_STALE_DAYS) return null;
+  return { neverBackedUp: false, daysSince, records };
+}
+
+// ---------------------------------------------------------------------------
+// Services
+// ---------------------------------------------------------------------------
+
+// What each service actually brings in. Quotes are folded in so a service can
+// be judged on what it closes, not only on what it earns.
+export function serviceBreakdown(s) {
+  const map = new Map();
+  const entry = (name) => {
+    const key = name || 'Other';
+    if (!map.has(key)) {
+      map.set(key, { service: key, jobs: 0, completed: 0, collected: 0, booked: 0, quotes: 0, accepted: 0 });
+    }
+    return map.get(key);
+  };
+
+  s.jobs.forEach((job) => {
+    const e = entry(job.service);
+    e.jobs += 1;
+    e.booked += job.amount || 0;
+    if (job.status === 'completed') e.completed += 1;
+    if (job.paymentReceived) e.collected += job.amount || 0;
+  });
+  s.quotes.forEach((quote) => {
+    const e = entry(quote.service);
+    e.quotes += 1;
+    if (quote.status === 'accepted') e.accepted += 1;
+  });
+
+  return [...map.values()]
+    .map((e) => ({
+      ...e,
+      average: e.jobs ? e.booked / e.jobs : 0,
+      closeRate: e.quotes ? e.accepted / e.quotes : null,
+    }))
+    .sort((a, b) => b.completed - a.completed || b.collected - a.collected);
+}
+
+// ---------------------------------------------------------------------------
 // Funnel
 // ---------------------------------------------------------------------------
 
@@ -482,14 +564,14 @@ export function recommendations(s, settings, now = new Date()) {
     });
   }
 
-  const best = s.territories
-    .map((t) => ({ t, stats: territoryStats(s, t.id) }))
-    .filter((entry) => entry.stats.knocked >= TEST_BLOCK)
-    .sort((a, b) => b.stats.revenuePerDoor - a.stats.revenuePerDoor)[0];
-  if (best && best.stats.revenuePerDoor > 0) {
+  const best = rankedTerritories(s).filter((entry) => entry.stats.jobsCompleted > 0)[0];
+  if (best) {
     out.push({
       icon: 'walk',
-      text: `${best.t.name} pays best — ${formatCurrency(best.stats.revenuePerDoor)} a door`,
+      text: `${best.territory.name} finishes most — ${plural(
+        best.stats.jobsCompleted,
+        'job'
+      )} done, ${formatCurrency(best.stats.collected)} in`,
       hash: '#/canvassing',
     });
   }

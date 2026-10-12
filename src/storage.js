@@ -59,6 +59,7 @@ const DEFAULT_SETTINGS = {
   // tracked separately so nothing is lost when one goal rolls into the next.
   goals: [],
   lastBackupAt: null,
+  backupReminderSnoozedAt: null,
 };
 
 export function newGoal({ amount, weeklyTarget, startDate, endDate }) {

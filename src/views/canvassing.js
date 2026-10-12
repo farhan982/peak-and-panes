@@ -171,11 +171,9 @@ function renderTerritoryPicker(root) {
     `;
     page.appendChild(empty);
   } else {
-    // Ranked by revenue per door — the number that actually answers "where
-    // should I go today". Territories with no doors yet sort last.
-    const ranked = territories
-      .map((t) => ({ territory: t, stats: domain.territoryStats(s, t.id) }))
-      .sort((a, b) => b.stats.revenuePerDoor - a.stats.revenuePerDoor);
+    // Ranked by jobs finished — doors measure effort, finished work measures
+    // what came of it. Territories never worked sort last.
+    const ranked = domain.rankedTerritories(s);
 
     const title = document.createElement('p');
     title.className = 'section-title';
@@ -207,8 +205,8 @@ function renderTerritoryPicker(root) {
           }</span>
         </span>
         <span class="row-right">
-          <span class="row-amount">${worked ? domain.formatCurrency(stats.revenuePerDoor) : '—'}</span>
-          <span class="row-sub">per door</span>
+          <span class="row-amount">${worked ? stats.jobsCompleted : '—'}</span>
+          <span class="row-sub">jobs done</span>
         </span>
       `;
       hit.addEventListener('click', () => {

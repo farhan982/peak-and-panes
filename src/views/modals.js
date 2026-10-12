@@ -1159,13 +1159,12 @@ export function openTerritorySheet(territoryId) {
         <div class="stat-cell"><p class="stat-name">Doors</p><p class="stat-num">${stats.knocked}</p></div>
         <div class="stat-cell"><p class="stat-name">Answered</p><p class="stat-num">${stats.answered}</p></div>
         <div class="stat-cell"><p class="stat-name">Quotes</p><p class="stat-num">${stats.quotes}</p></div>
-        <div class="stat-cell"><p class="stat-name">Jobs</p><p class="stat-num">${stats.jobs}</p></div>
-        <div class="stat-cell highlight"><p class="stat-name">Per door</p><p class="stat-num small">${domain.formatCurrency(
-          stats.revenuePerDoor
-        )}</p></div>
+        <div class="stat-cell"><p class="stat-name">Booked</p><p class="stat-num">${stats.jobsBooked}</p></div>
+        <div class="stat-cell highlight"><p class="stat-name">Jobs done</p><p class="stat-num">${stats.jobsCompleted}</p></div>
       </div>
       <div class="card">
-        ${detailLine('Revenue booked', domain.formatCurrency(stats.revenueBooked))}
+        ${detailLine('Collected', domain.formatCurrency(stats.collected))}
+        ${detailLine('Revenue per door', stats.knocked ? domain.formatCurrency(stats.revenuePerDoor) : '—')}
         ${detailLine('Answer rate', stats.knocked ? domain.formatPercent(stats.answered / stats.knocked) : '—')}
         ${detailLine('Quote rate', stats.knocked ? domain.formatPercent(stats.quoteRate) : '—')}
         ${detailLine(

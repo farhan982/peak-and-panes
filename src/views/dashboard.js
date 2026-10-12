@@ -29,6 +29,9 @@ export function renderDashboard(root) {
     subtitle: "Let's crush today.",
   });
 
+  const reminder = domain.backupReminder(s, settings, now);
+  if (reminder) page.appendChild(buildBackupBanner(reminder));
+
   page.appendChild(buildGoalCard(s, settings, now));
   page.appendChild(buildMetrics(s, now));
 
@@ -88,6 +91,34 @@ function buildGoalCard(s, settings, now) {
     }
   });
   return card;
+}
+
+// Your records live in one browser. This is the only thing that says so.
+function buildBackupBanner(reminder) {
+  const banner = document.createElement('div');
+  banner.className = 'reminder-banner';
+  banner.innerHTML = `
+    <div class="row-main">
+      <p class="reminder-title">Back up your records</p>
+      <p class="reminder-body">${
+        reminder.neverBackedUp
+          ? `You have never saved a backup. ${domain.plural(
+              reminder.records,
+              'record'
+            )} exist only on this phone.`
+          : `Last backup was ${domain.plural(reminder.daysSince, 'day')} ago.`
+      }</p>
+    </div>
+    <button class="reminder-go" id="reminder-go">Back up</button>
+    <button class="reminder-dismiss" id="reminder-dismiss" aria-label="Remind me later">&times;</button>
+  `;
+  banner.querySelector('#reminder-go').addEventListener('click', () => {
+    location.hash = '#/settings';
+  });
+  banner.querySelector('#reminder-dismiss').addEventListener('click', () => {
+    state.updateSettings({ backupReminderSnoozedAt: new Date().toISOString() });
+  });
+  return banner;
 }
 
 function buildNoGoalCard(s) {

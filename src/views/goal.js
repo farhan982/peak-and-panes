@@ -18,6 +18,7 @@ export function renderGoal(root) {
   page.appendChild(buildGoalCard(s, settings, now));
   page.appendChild(buildLifetime(s, settings));
   page.appendChild(buildTerritoryTable(s));
+  page.appendChild(buildServicesLink(s));
 
   const active = domain.activeGoal(settings);
   if (active) page.appendChild(buildWeeklyTarget(s, active, now));
@@ -165,17 +166,14 @@ function buildTerritoryTable(s) {
   const card = document.createElement('div');
   card.className = 'card';
 
-  const ranked = s.territories
-    .map((t) => ({ territory: t, stats: domain.territoryStats(s, t.id) }))
-    .filter((entry) => entry.stats.knocked > 0)
-    .sort((a, b) => b.stats.revenuePerDoor - a.stats.revenuePerDoor);
+  const ranked = domain.rankedTerritories(s).filter((entry) => entry.stats.knocked > 0);
 
   if (!ranked.length) {
     card.innerHTML = `
       <p class="card-title">Territory performance</p>
-      <p class="card-sub">Ranked by revenue per door once you have knocked some. That
-        is the number that decides where to go next, not total revenue — a big
-        neighbourhood can look good simply by being big.</p>
+      <p class="card-sub">Ranked by jobs actually finished once you have knocked
+        some doors. Doors measure effort; completed work measures what the effort
+        produced.</p>
     `;
     return card;
   }
@@ -183,10 +181,10 @@ function buildTerritoryTable(s) {
   card.innerHTML = `
     <div class="card-row" style="margin-bottom:10px">
       <p class="card-title">Territory performance</p>
-      <span class="muted" style="font-size:12px">per door</span>
+      <span class="muted" style="font-size:12px">by jobs done</span>
     </div>
     <div class="terr-head">
-      <span>#</span><span>Territory</span><span>Doors</span><span>Jobs</span><span>Rev/door</span>
+      <span>#</span><span>Territory</span><span>Doors</span><span>Done</span><span>Collected</span>
     </div>
   `;
   ranked.forEach(({ territory, stats }, i) => {
@@ -199,10 +197,34 @@ function buildTerritoryTable(s) {
         i === 0 ? '<span class="terr-tag">Top performer</span>' : ''
       }</span>
       <span>${stats.knocked}</span>
-      <span>${stats.jobs}</span>
-      <span class="terr-rev">${domain.formatCurrency(stats.revenuePerDoor)}</span>
+      <span>${stats.jobsCompleted}</span>
+      <span class="terr-rev">${domain.formatCurrency(stats.collected)}</span>
     `;
     card.appendChild(row);
+  });
+  return card;
+}
+
+function buildServicesLink(s) {
+  const rows = domain.serviceBreakdown(s);
+  const top = rows[0];
+  const card = document.createElement('button');
+  card.className = 'card interactive link-card';
+  card.innerHTML = `
+    <div class="card-row">
+      <div class="row-main">
+        <p class="card-title">Service performance</p>
+        <p class="card-sub">${
+          top && top.completed
+            ? `${esc(top.service)} leads with ${domain.plural(top.completed, 'job')} done`
+            : 'Jobs and revenue broken down by what the work was'
+        }</p>
+      </div>
+      <span class="chevron">${icon('chevron', 18)}</span>
+    </div>
+  `;
+  card.addEventListener('click', () => {
+    location.hash = '#/services';
   });
   return card;
 }

@@ -6,10 +6,11 @@ import { renderCustomers } from './views/customers.js';
 import { renderSettings } from './views/settings.js';
 import { renderDashboard } from './views/dashboard.js';
 import { renderGoal } from './views/goal.js';
+import { renderServices } from './views/services.js';
 import { buildBottomNav } from './views/nav.js';
 
 const root = document.getElementById('app');
-const ROUTES = ['canvassing', 'jobs', 'customers', 'goal', 'settings'];
+const ROUTES = ['canvassing', 'jobs', 'customers', 'goal', 'settings', 'services'];
 
 function currentRoute() {
   const hash = location.hash.replace(/^#\/?/, '');
@@ -40,11 +41,14 @@ function render() {
     renderSettings(root);
   } else if (route === 'goal') {
     renderGoal(root);
+  } else if (route === 'services') {
+    renderServices(root);
   } else {
     renderDashboard(root);
   }
   // Settings has no tab of its own; it is reached from the header gear.
-  root.appendChild(buildBottomNav(route === 'settings' ? '' : route));
+  const navRoute = route === 'settings' ? '' : route === 'services' ? 'goal' : route;
+  root.appendChild(buildBottomNav(navRoute));
 }
 
 window.addEventListener('hashchange', () => {

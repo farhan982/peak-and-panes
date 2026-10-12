@@ -1613,3 +1613,9 @@ button.terr-row {
   width: 100%;
   text-align: left;
 }
+
+/* Booked needs to read differently from both Quoted and Completed. */
+.pill.navy {
+  background: #e3e9f5;
+  color: var(--navy);
+}

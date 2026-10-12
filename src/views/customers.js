@@ -4,20 +4,13 @@ import { icon } from '../icons.js';
 import { buildScreen } from './header.js';
 import { esc, openCustomerSheet } from './modals.js';
 
-const STATUS_LABELS = {
-  lead: ['Lead', ''],
-  quote_sent: ['Quoted', 'blue'],
-  follow_up: ['Follow up', 'purple'],
-  booked: ['Booked', 'green'],
-  declined: ['Declined', 'orange'],
-};
-
 export function renderCustomers(root) {
   const page = buildScreen(root, {
     title: 'Customers',
     subtitle: 'Every name taken at a door.',
   });
 
+  const s = state.getState();
   const customers = [...state.getCustomers()].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 
   if (!customers.length) {
@@ -35,14 +28,14 @@ export function renderCustomers(root) {
     return;
   }
 
-  const quotes = state.getQuotes();
-  const jobs = state.getJobs();
+  const quotes = s.quotes;
+  const jobs = s.jobs;
 
   customers.forEach((customer) => {
     const theirJobs = jobs.filter((j) => j.customerId === customer.id);
     const theirQuotes = quotes.filter((q) => q.customerId === customer.id);
     const value = theirJobs.reduce((sum, j) => sum + (j.amount || 0), 0);
-    const [label, tone] = STATUS_LABELS[customer.status] || ['Lead', ''];
+    const [label, tone] = domain.customerStageLabel(s, customer);
 
     const parts = [];
     if (theirQuotes.length) parts.push(domain.plural(theirQuotes.length, 'quote'));

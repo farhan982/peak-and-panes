@@ -7,6 +7,7 @@
 export const OUTCOMES = [
   { key: 'no_answer', label: 'No Answer', tone: 'neutral' },
   { key: 'not_interested', label: 'Not Interested', tone: 'warn' },
+  { key: 'interested', label: 'Interested', tone: 'gold' },
   { key: 'follow_up', label: 'Follow Up', tone: 'info' },
   { key: 'quote_given', label: 'Quote Given', tone: 'primary' },
   { key: 'booked', label: 'Booked', tone: 'success' },
@@ -22,12 +23,13 @@ export const SERVICES = [
   'Interior + Exterior',
   'Eaves',
   'Windows + Eaves',
+  'Interior + Exterior + Eaves',
   'Painting',
   'Odd Job',
 ];
 
 // A door counts as "answered" whenever somebody actually came to the door.
-const ANSWERED = ['not_interested', 'follow_up', 'quote_given', 'booked'];
+const ANSWERED = ['not_interested', 'interested', 'follow_up', 'quote_given', 'booked'];
 
 export function isAnswered(door) {
   return ANSWERED.includes(door.outcome);
@@ -48,6 +50,32 @@ export const SOURCES = [
   'Business card',
   'Other',
 ];
+
+export const CUSTOMER_STAGES = {
+  lead: ['Lead', ''],
+  interested: ['Interested', 'gold'],
+  follow_up: ['Follow up', 'purple'],
+  quote_sent: ['Quoted', 'blue'],
+  booked: ['Booked', 'navy'],
+  completed: ['Completed', 'green'],
+  declined: ['Declined', 'orange'],
+};
+
+export function customerStage(s, customer) {
+  const jobs = s.jobs.filter((j) => j.customerId === customer.id);
+  if (jobs.some((j) => j.status === 'completed')) return 'completed';
+  if (jobs.length) return 'booked';
+  const quotes = s.quotes.filter((q) => q.customerId === customer.id);
+  if (quotes.some((q) => q.status === 'open')) return 'quote_sent';
+  if (quotes.length && quotes.every((q) => q.status === 'declined')) return 'declined';
+  // Nothing recorded yet, so fall back to how they were first logged —
+  // a named follow-up or an interested door has no record of its own.
+  return CUSTOMER_STAGES[customer.status] ? customer.status : 'lead';
+}
+
+export function customerStageLabel(s, customer) {
+  return CUSTOMER_STAGES[customerStage(s, customer)];
+}
 
 // Everything attached to one customer, for their detail sheet and for the
 // delete confirmation — which has to be able to say what it is destroying.
@@ -151,6 +179,7 @@ export function doorStats(doors) {
     quotes: 0,
     jobs: 0,
     followUps: 0,
+    interested: 0,
     quoteValue: 0,
     revenueBooked: 0,
   };
@@ -161,6 +190,7 @@ export function doorStats(doors) {
       stats.quoteValue += d.amount || 0;
     }
     if (d.outcome === 'follow_up') stats.followUps += 1;
+    if (d.outcome === 'interested') stats.interested += 1;
     if (d.outcome === 'booked') {
       stats.jobs += 1;
       stats.revenueBooked += d.amount || 0;

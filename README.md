@@ -17,8 +17,11 @@ log every door with one tap:
 
 - Live session timer with doors-per-hour, and a live stat strip (doors,
   answered, quotes, jobs, revenue booked).
-- Five one-tap outcomes. *No Answer* and *Not Interested* log instantly;
-  *Follow Up*, *Quote Given* and *Booked* open a short sheet.
+- Six one-tap outcomes. *No Answer* and *Not Interested* log instantly;
+  *Interested*, *Follow Up*, *Quote Given* and *Booked* open a short sheet.
+  *Interested* and *Follow Up* differ by who moves next: a follow-up is a date
+  you go back on, an interested door is someone who may ring you, so it has no
+  date field.
 - *Quote Given* creates a customer and an open quote with a follow-up date.
   *Booked* creates a customer and a scheduled job. Both in one tap plus a form.
 - Undo on the most recent door, which also removes anything that tap created —
@@ -36,7 +39,12 @@ log every door with one tap:
 schedules the job and carries the customer over) or **declined**. Tap a job to see it, call or
 navigate to the customer, and mark it complete with a payment method — or
 complete it unpaid and record the payment later. The Completed tab shows
-revenue **collected** and how much is still owed. Tap a **customer** for their record: collected and booked totals, contact
+revenue **collected** and how much is still owed. A customer's status is **derived from their records**, not stored — a finished
+job shows them as Completed rather than leaving them stuck on Booked. The
+progression is Lead → Interested → Follow up → Quoted → Booked → Completed,
+with Declined for a quote that came to nothing.
+
+Tap a **customer** for their record: collected and booked totals, contact
 details, referral source, and every quote and job they have had, each opening
 its own sheet. From there they can be edited or deleted.
 

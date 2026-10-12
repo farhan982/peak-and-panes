@@ -597,6 +597,34 @@ export function declineQuote(quoteId) {
   notify();
 }
 
+// Interested, but nothing to chase on a schedule — they may ring you. The
+// difference from a follow-up is who makes the next move, so there is
+// deliberately no date here.
+export function logInterested({ sessionId, territoryId, address, name, note }) {
+  let customerId = null;
+  let createdCustomer = false;
+  if (name) {
+    const customer = addCustomer({
+      name,
+      address: address || '',
+      status: 'interested',
+      territoryId,
+      note: note || '',
+    });
+    customerId = customer.id;
+    createdCustomer = true;
+  }
+  return logDoor({
+    sessionId,
+    territoryId,
+    address,
+    outcome: 'interested',
+    note: note || '',
+    customerId,
+    createdCustomer,
+  });
+}
+
 // A "Follow Up" door is a soft lead: worth a name and a date, not a quote.
 export function logFollowUp({ sessionId, territoryId, address, name, followUpDate, note }) {
   let customerId = null;

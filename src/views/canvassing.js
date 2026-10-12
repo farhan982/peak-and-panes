@@ -8,6 +8,7 @@ import {
   openQuoteModal,
   openBookedModal,
   openFollowUpModal,
+  openInterestedModal,
   openSessionSummaryModal,
   openTerritorySheet,
   esc,
@@ -37,6 +38,7 @@ const TILE_STYLE = {
   quote_given: { icon: 'doc', tone: 'blue' },
   booked: { icon: 'checkCircle', tone: 'green' },
   follow_up: { icon: 'clock', tone: 'purple' },
+  interested: { icon: 'star', tone: 'gold' },
 };
 
 // setInterval rather than requestAnimationFrame: rAF is fully paused in a
@@ -532,7 +534,7 @@ function renderActiveSession(root, session) {
 
   // Three tiles then two, matching the design's layout weighting.
   page.appendChild(buildTiles(['no_answer', 'not_interested', 'quote_given'], 'three', session, addressInput));
-  page.appendChild(buildTiles(['booked', 'follow_up'], 'two', session, addressInput));
+  page.appendChild(buildTiles(['booked', 'follow_up', 'interested'], 'three', session, addressInput));
 
   if (territory && territory.doorTarget) {
     page.appendChild(buildRouteProgress(territoryDoors, territory.doorTarget));
@@ -548,9 +550,13 @@ function renderActiveSession(root, session) {
       .reverse()
       .slice(0, 6)
       .forEach((door, i) => {
-        const tone = { booked: 'green', quote_given: 'blue', follow_up: 'purple', not_interested: 'orange' }[
-          door.outcome
-        ];
+        const tone = {
+          booked: 'green',
+          quote_given: 'blue',
+          follow_up: 'purple',
+          interested: 'gold',
+          not_interested: 'orange',
+        }[door.outcome];
         const row = document.createElement('div');
         row.className = 'row';
         row.innerHTML = `
@@ -654,6 +660,8 @@ function handleOutcome(outcome, session, address) {
     openBookedModal(context, afterSheet);
   } else if (outcome === 'follow_up') {
     openFollowUpModal(context, afterSheet);
+  } else if (outcome === 'interested') {
+    openInterestedModal(context, afterSheet);
   } else {
     // No Answer and Not Interested need no extra information, so they stay
     // true one-tap actions. Clearing before the log means the re-render that

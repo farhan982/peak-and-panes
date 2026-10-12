@@ -268,6 +268,38 @@ export function openFollowUpModal({ sessionId, territoryId, address }, onDone) {
   });
 }
 
+// --- Interested ------------------------------------------------------------
+
+export function openInterestedModal({ sessionId, territoryId, address }, onDone) {
+  openSheet((sheet, close) => {
+    sheet.innerHTML = `
+      <p class="sheet-title">Interested</p>
+      <p class="sheet-sub">They might call you. A name makes it possible to find
+        them when they do — everything here is optional.</p>
+      <div class="field">
+        <label>Name</label>
+        <input type="text" id="i-name" placeholder="Homeowner at ${esc(address || 'this door')}" />
+      </div>
+      <div class="field">
+        <label>Notes</label>
+        <textarea id="i-note" placeholder="Took a card. Thinking about spring."></textarea>
+      </div>
+      <button class="btn-primary" id="i-save">Log interested</button>
+    `;
+    sheet.querySelector('#i-save').addEventListener('click', () => {
+      state.logInterested({
+        sessionId,
+        territoryId,
+        address,
+        name: sheet.querySelector('#i-name').value.trim(),
+        note: sheet.querySelector('#i-note').value.trim(),
+      });
+      close();
+      if (onDone) onDone();
+    });
+  });
+}
+
 // --- End of session --------------------------------------------------------
 
 export function openSessionSummaryModal(session, doors) {
@@ -923,19 +955,11 @@ export function openGoalModal(existing, onDone) {
 
 // --- Customer --------------------------------------------------------------
 
-const CUSTOMER_STATUS = {
-  lead: ['Lead', ''],
-  quote_sent: ['Quoted', 'blue'],
-  follow_up: ['Follow up', 'purple'],
-  booked: ['Booked', 'green'],
-  declined: ['Declined', 'orange'],
-};
-
 export function openCustomerSheet(customerId) {
   const customer = state.getCustomer(customerId);
   if (!customer) return;
   const summary = domain.customerSummary(state.getState(), customerId);
-  const [label, tone] = CUSTOMER_STATUS[customer.status] || CUSTOMER_STATUS.lead;
+  const [label, tone] = domain.customerStageLabel(state.getState(), customer);
 
   openSheet((sheet, close) => {
     sheet.innerHTML = `

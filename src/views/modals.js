@@ -27,13 +27,14 @@ export function openSheet(buildContent) {
   return { sheet, close };
 }
 
-function serviceLinesField(sheet, chipSelector, priceSelector, initial) {
+function serviceLinesField(sheet, chipSelector, priceSelector, initial, initialDiscount) {
   const chipRow = sheet.querySelector(chipSelector);
   const priceBox = sheet.querySelector(priceSelector);
   let selected =
     initial && initial.length
       ? initial.map((l) => ({ service: l.service, amount: l.amount || 0 }))
       : [{ service: domain.SERVICES[0], amount: 0 }];
+  let discount = initialDiscount || 0;
 
   // A service saved before this list existed stays selectable rather than
   // being silently swapped for something else.
@@ -46,6 +47,18 @@ function serviceLinesField(sheet, chipSelector, priceSelector, initial) {
   const priceInput = (id, value) =>
     `<div class="input-prefix"><span class="prefix-symbol">${symbol}</span>` +
     `<input type="number" id="${id}" inputmode="decimal" min="0" step="1" value="${value || ''}" /></div>`;
+
+  const subtotal = () => domain.linesTotal(selected);
+  // Never let a discount take the job below nothing.
+  const capped = () => Math.min(discount, subtotal());
+  const total = () => Math.max(0, subtotal() - capped());
+
+  function refreshTotals() {
+    const sub = priceBox.querySelector('#sl-subtotal');
+    const tot = priceBox.querySelector('#sl-total');
+    if (sub) sub.textContent = domain.formatCurrency(subtotal());
+    if (tot) tot.textContent = domain.formatCurrency(total());
+  }
 
   function draw() {
     chipRow.innerHTML = '';
@@ -61,6 +74,7 @@ function serviceLinesField(sheet, chipSelector, priceSelector, initial) {
         // switched off — only swapped by picking another.
         if (i >= 0 && selected.length > 1) selected.splice(i, 1);
         else if (i < 0) selected.push({ service: name, amount: 0 });
+        if (selected.length < 2) discount = 0;
         draw();
       });
       chipRow.appendChild(chip);
@@ -69,6 +83,8 @@ function serviceLinesField(sheet, chipSelector, priceSelector, initial) {
     if (selected.length === 1) {
       priceBox.innerHTML = `<label>Price</label>${priceInput('sl-0', selected[0].amount)}`;
     } else {
+      // Each line keeps its standalone price; the discount sits apart from
+      // them, so dropping a service later still leaves a real number behind.
       priceBox.innerHTML =
         '<label>Price per service</label>' +
         selected
@@ -80,9 +96,14 @@ function serviceLinesField(sheet, chipSelector, priceSelector, initial) {
               )}</div>`
           )
           .join('') +
-        `<div class="line-row line-total"><span class="line-name">Total</span><strong id="sl-total">${domain.formatCurrency(
-          domain.linesTotal(selected)
-        )}</strong></div>`;
+        `<div class="line-row line-sub"><span class="line-name">Subtotal</span>` +
+        `<strong id="sl-subtotal">${domain.formatCurrency(subtotal())}</strong></div>` +
+        `<div class="line-row"><span class="line-name">Bundle discount</span>${priceInput(
+          'sl-discount',
+          discount
+        )}</div>` +
+        `<div class="line-row line-total"><span class="line-name">Customer pays</span>` +
+        `<strong id="sl-total">${domain.formatCurrency(total())}</strong></div>`;
     }
 
     selected.forEach((line, i) => {
@@ -90,10 +111,18 @@ function serviceLinesField(sheet, chipSelector, priceSelector, initial) {
       input.addEventListener('input', () => {
         const value = parseFloat(input.value);
         line.amount = value > 0 ? value : 0;
-        const total = priceBox.querySelector('#sl-total');
-        if (total) total.textContent = domain.formatCurrency(domain.linesTotal(selected));
+        refreshTotals();
       });
     });
+
+    const discountInput = priceBox.querySelector('#sl-discount');
+    if (discountInput) {
+      discountInput.addEventListener('input', () => {
+        const value = parseFloat(discountInput.value);
+        discount = value > 0 ? value : 0;
+        refreshTotals();
+      });
+    }
   }
 
   draw();
@@ -102,10 +131,11 @@ function serviceLinesField(sheet, chipSelector, priceSelector, initial) {
     const lines = selected.map((l) => ({ service: l.service, amount: l.amount || 0 }));
     return {
       service: domain.formatServiceSummary(lines),
-      amount: domain.linesTotal(lines),
-      // A single service needs no breakdown; keeping it absent leaves those
-      // records exactly the shape they have always been.
+      // The total is what the customer is charged; the lines stay at list
+      // price so a single service can still be quoted from them later.
+      amount: lines.length > 1 ? total() : domain.linesTotal(lines),
       lines: lines.length > 1 ? lines : null,
+      discount: lines.length > 1 ? capped() : 0,
     };
   };
 }
@@ -207,6 +237,7 @@ export function openQuoteModal({ sessionId, territoryId, address }, onDone) {
         service: picked.service,
         amount: picked.amount,
         lines: picked.lines,
+        discount: picked.discount,
         followUpDate: sheet.querySelector('#q-followup').value || null,
         note: sheet.querySelector('#q-note').value.trim(),
       });
@@ -274,6 +305,7 @@ export function openBookedModal({ sessionId, territoryId, address }, onDone) {
         service: picked.service,
         amount: picked.amount,
         lines: picked.lines,
+        discount: picked.discount,
         scheduledAt: when ? new Date(when).toISOString() : null,
         note: sheet.querySelector('#b-note').value.trim(),
       });
@@ -453,7 +485,10 @@ export function openJobSheet(jobId) {
           job.lines && job.lines.length > 1
             ? job.lines
                 .map((l) => detailLine(`&nbsp;&nbsp;${esc(l.service)}`, domain.formatCurrency(l.amount)))
-                .join('')
+                .join('') +
+              (job.discount
+                ? detailLine('&nbsp;&nbsp;Bundle discount', `&minus;${domain.formatCurrency(job.discount)}`)
+                : '')
             : ''
         }
         ${detailLine('Price', domain.formatCurrency(job.amount))}
@@ -572,7 +607,7 @@ export function openEditJobModal(jobId) {
       </div>
       <button class="btn-primary" id="e-save">Save changes</button>
     `;
-    const getServices = serviceLinesField(sheet, '#e-services', '#e-prices', domain.serviceList(job));
+    const getServices = serviceLinesField(sheet, '#e-services', '#e-prices', domain.serviceList(job), job.discount);
     sheet.querySelector('#e-save').addEventListener('click', () => {
       const picked = getServices();
       const when = sheet.querySelector('#e-when').value;
@@ -581,6 +616,8 @@ export function openEditJobModal(jobId) {
         service: picked.service,
         amount: picked.amount,
         lines: picked.lines,
+        discount: picked.discount,
+        discount: picked.discount,
         scheduledAt: when ? new Date(when).toISOString() : null,
         ...(doneField ? { completedAt: dateToStamp(doneField.value) } : {}),
         note: sheet.querySelector('#e-note').value.trim(),
@@ -708,7 +745,10 @@ export function openQuoteSheet(quoteId) {
           quote.lines && quote.lines.length > 1
             ? quote.lines
                 .map((l) => detailLine(`&nbsp;&nbsp;${esc(l.service)}`, domain.formatCurrency(l.amount)))
-                .join('')
+                .join('') +
+              (quote.discount
+                ? detailLine('&nbsp;&nbsp;Bundle discount', `&minus;${domain.formatCurrency(quote.discount)}`)
+                : '')
             : ''
         }
         ${detailLine('Quoted', domain.formatCurrency(quote.amount))}
@@ -814,13 +854,15 @@ export function openEditQuoteModal(quoteId) {
       </div>
       <button class="btn-primary" id="eq-save">Save changes</button>
     `;
-    const getServices = serviceLinesField(sheet, '#eq-services', '#eq-prices', domain.serviceList(quote));
+    const getServices = serviceLinesField(sheet, '#eq-services', '#eq-prices', domain.serviceList(quote), quote.discount);
     sheet.querySelector('#eq-save').addEventListener('click', () => {
       const picked = getServices();
       state.updateQuote(quoteId, {
         service: picked.service,
         amount: picked.amount,
         lines: picked.lines,
+        discount: picked.discount,
+        discount: picked.discount,
         followUpDate: sheet.querySelector('#eq-followup').value || null,
         note: sheet.querySelector('#eq-note').value.trim(),
       });
@@ -883,6 +925,7 @@ export function openNewQuoteModal(onDone) {
         service: picked.service,
         amount: picked.amount,
         lines: picked.lines,
+        discount: picked.discount,
         followUpDate: sheet.querySelector('#n-followup').value || null,
         note: sheet.querySelector('#n-note').value.trim(),
       });
@@ -941,6 +984,7 @@ export function openNewJobModal(onDone) {
         service: picked.service,
         amount: picked.amount,
         lines: picked.lines,
+        discount: picked.discount,
         scheduledAt: when ? new Date(when).toISOString() : null,
         note: sheet.querySelector('#n-note').value.trim(),
       });

@@ -1750,3 +1750,16 @@ button.terr-row {
 .week-notes strong {
   color: var(--ink);
 }
+
+.line-sub {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+
+.line-sub .line-name,
+.line-sub strong {
+  color: var(--muted);
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}

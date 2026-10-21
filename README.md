@@ -154,6 +154,23 @@ always did, and the extra taps only appear when two things are genuinely sold. T
 single service stores no `lines` at all, leaving those records exactly the
 shape they have always had.
 
+### Bundle discounts
+
+A bundle is usually sold for less than its parts add up to. The lines always
+hold each service's **standalone price**, and the discount is stored separately
+as `discount`, with `amount` holding what the customer actually pays. That
+split is the point: if the customer later wants only the windows, the windows
+line is still a real quotable number rather than something already shaded by a
+deal on work they no longer want. Dropping back to one service therefore clears
+the discount and leaves that service at list price.
+
+For reporting, `attributedLines()` spreads the money actually charged across
+the lines **in proportion**, so $35 off a $265 + $220 pair takes about $19 off
+the windows and $16 off the eaves rather than all of it off whichever line
+happens to be first. Per-service revenue then sums exactly to what was
+collected. Use `serviceList()` when showing what was quoted and
+`attributedLines()` when counting money.
+
 The Services page splits such a job across both rows, with its money divided by
 line — the only way to answer "what does eaves work bring in" when eaves is
 usually sold alongside windows. Per-service job counts can therefore sum to

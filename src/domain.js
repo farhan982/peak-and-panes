@@ -96,6 +96,26 @@ export function linesTotal(lines) {
   return lines.reduce((sum, l) => sum + (l.amount || 0), 0);
 }
 
+// What the services add up to before any bundle discount. The lines
+// themselves always hold the standalone price, so that dropping one service
+// later still leaves a real number for the other.
+export function lineSubtotal(record) {
+  return linesTotal(serviceList(record));
+}
+
+// The money actually charged, spread across the lines in proportion. A bundle
+// discount belongs to the job as a whole, not to one of its services, so
+// knocking $35 off a $485 pair takes roughly $19 off the windows and $16 off
+// the eaves rather than all of it off whichever line happens to be first.
+export function attributedLines(record) {
+  const lines = serviceList(record);
+  const subtotal = linesTotal(lines);
+  const total = record && typeof record.amount === 'number' ? record.amount : subtotal;
+  if (!subtotal || subtotal === total) return lines;
+  const factor = total / subtotal;
+  return lines.map((l) => ({ service: l.service, amount: (l.amount || 0) * factor }));
+}
+
 // Everything attached to one customer, for their detail sheet and for the
 // delete confirmation — which has to be able to say what it is destroying.
 export function customerSummary(s, customerId) {
@@ -517,7 +537,7 @@ export function serviceBreakdown(s) {
   // split by line — that is the only way to answer "what does eaves work
   // bring in" when eaves is usually sold alongside windows.
   s.jobs.forEach((job) => {
-    serviceList(job).forEach((line) => {
+    attributedLines(job).forEach((line) => {
       const e = entry(line.service);
       e.jobs += 1;
       e.booked += line.amount || 0;
@@ -526,7 +546,7 @@ export function serviceBreakdown(s) {
     });
   });
   s.quotes.forEach((quote) => {
-    serviceList(quote).forEach((line) => {
+    attributedLines(quote).forEach((line) => {
       const e = entry(line.service);
       e.quotes += 1;
       if (quote.status === 'accepted') e.accepted += 1;
@@ -570,7 +590,7 @@ export function weekSummary(s, now = new Date()) {
   const byService = new Map();
   done.forEach((job) => {
     if (job.territoryId) byTerritory.set(job.territoryId, (byTerritory.get(job.territoryId) || 0) + 1);
-    serviceList(job).forEach((line) => {
+    attributedLines(job).forEach((line) => {
       byService.set(line.service, (byService.get(line.service) || 0) + (line.amount || 0));
     });
   });

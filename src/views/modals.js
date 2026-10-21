@@ -48,10 +48,12 @@ function serviceLinesField(sheet, chipSelector, priceSelector, initial, initialT
   });
 
   const symbol = domain.currencySymbol();
+  // A price of zero shows as an empty box, not as "0" that has to be deleted
+  // before a real number can be typed. Leaving it blank still saves as zero.
   const priceInput = (id, value) =>
     `<div class="input-prefix"><span class="prefix-symbol">${symbol}</span>` +
     `<input type="number" id="${id}" inputmode="decimal" min="0" step="1" value="${
-      value === null || value === undefined || value === '' ? '' : value
+      value ? value : ''
     }" /></div>`;
 
   const subtotal = () => domain.linesTotal(selected);

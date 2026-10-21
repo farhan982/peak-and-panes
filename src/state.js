@@ -428,7 +428,7 @@ export function logBooked({
 
 // Work that arrives by phone or referral rather than at a door. Same records,
 // no session and no door.
-export function createQuoteDirect({ name, phone, address, service, amount, followUpDate, note, source }) {
+export function createQuoteDirect({ name, phone, address, service, amount, lines, followUpDate, note, source }) {
   const customer = addCustomer({
     name,
     phone: phone || '',
@@ -443,6 +443,7 @@ export function createQuoteDirect({ name, phone, address, service, amount, follo
     territoryId: null,
     service,
     amount: amount || 0,
+    lines: lines || null,
     followUpDate: followUpDate || null,
     note: note || '',
     status: 'open',
@@ -453,7 +454,7 @@ export function createQuoteDirect({ name, phone, address, service, amount, follo
   return quote;
 }
 
-export function createJobDirect({ name, phone, email, address, service, amount, scheduledAt, note, source }) {
+export function createJobDirect({ name, phone, email, address, service, amount, lines, scheduledAt, note, source }) {
   const customer = addCustomer({
     name,
     phone: phone || '',
@@ -469,6 +470,7 @@ export function createJobDirect({ name, phone, email, address, service, amount, 
     territoryId: null,
     service,
     amount: amount || 0,
+    lines: lines || null,
     scheduledAt: scheduledAt || null,
     note: note || '',
     status: 'scheduled',
@@ -536,11 +538,11 @@ export function deleteQuote(quoteId) {
   notify();
 }
 
-export function completeJob(jobId, { paymentReceived, paymentMethod }) {
+export function completeJob(jobId, { paymentReceived, paymentMethod, completedAt }) {
   const job = state.jobs.find((j) => j.id === jobId);
   if (!job) return;
   job.status = 'completed';
-  job.completedAt = new Date().toISOString();
+  job.completedAt = completedAt || new Date().toISOString();
   job.paymentReceived = Boolean(paymentReceived);
   job.paymentMethod = paymentReceived ? paymentMethod || 'Other' : null;
   stampGoalIfAchieved();
@@ -570,6 +572,7 @@ export function acceptQuote(quoteId, scheduledAt) {
     territoryId: quote.territoryId,
     service: quote.service,
     amount: quote.amount,
+    lines: quote.lines || null,
     scheduledAt: scheduledAt || null,
     note: quote.note || '',
     status: 'scheduled',

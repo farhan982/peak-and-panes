@@ -232,7 +232,7 @@ function buildServicesLink(s) {
 function buildWeeklyTarget(s, goal, now) {
   const weekStart = domain.startOfWeek(now);
   const collected = domain.revenueBooked(
-    s.jobs.filter((j) => j.paymentReceived && domain.withinRange(j.completedAt, weekStart, now))
+    s.jobs.filter((j) => j.paymentReceived && domain.withinRange(j.completedAt, weekStart, domain.endOfToday(now)))
   );
   const target = goal.weeklyTarget || 0;
   const pct = target ? collected / target : 0;
@@ -284,10 +284,10 @@ function buildRecommendations(recs) {
 
 function buildWeekOverview(s, now) {
   const weekStart = domain.startOfWeek(now);
-  const doors = s.doors.filter((d) => domain.withinRange(d.at, weekStart, now));
+  const doors = s.doors.filter((d) => domain.withinRange(d.at, weekStart, domain.endOfToday(now)));
   const f = domain.funnel(doors);
   const collected = domain.revenueBooked(
-    s.jobs.filter((j) => j.paymentReceived && domain.withinRange(j.completedAt, weekStart, now))
+    s.jobs.filter((j) => j.paymentReceived && domain.withinRange(j.completedAt, weekStart, domain.endOfToday(now)))
   );
 
   const card = document.createElement('div');

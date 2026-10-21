@@ -81,6 +81,8 @@ export function renderServices(root) {
   const note = document.createElement('p');
   note.className = 'card-sub';
   note.style.margin = '14px 4px 0';
-  note.textContent = 'All time. Collected counts money received, not work still on the books.';
+  note.textContent =
+    'All time. Collected counts money received, not work still on the books. A job ' +
+    'priced across two services counts under each, with its money split by line.';
   page.appendChild(note);
 }

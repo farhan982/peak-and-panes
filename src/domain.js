@@ -77,6 +77,23 @@ export function customerStageLabel(s, customer) {
   return CUSTOMER_STAGES[customerStage(s, customer)];
 }
 
+// A job or quote may be priced per service. Older records have a single
+// service string and one amount, so they are presented as a single line.
+export function serviceList(record) {
+  if (record && Array.isArray(record.lines) && record.lines.length) {
+    return record.lines.map((l) => ({ service: l.service, amount: l.amount || 0 }));
+  }
+  return [{ service: (record && record.service) || 'Other', amount: (record && record.amount) || 0 }];
+}
+
+export function formatServiceSummary(lines) {
+  return lines.map((l) => l.service).join(' + ');
+}
+
+export function linesTotal(lines) {
+  return lines.reduce((sum, l) => sum + (l.amount || 0), 0);
+}
+
 // Everything attached to one customer, for their detail sheet and for the
 // delete confirmation — which has to be able to say what it is destroying.
 export function customerSummary(s, customerId) {
@@ -345,6 +362,12 @@ export function startOfWeek(date = new Date()) {
   return d;
 }
 
+export function endOfToday(now = new Date()) {
+  const d = startOfDay(now);
+  d.setDate(d.getDate() + 1);
+  return d;
+}
+
 export function withinRange(iso, from, to) {
   if (!iso) return false;
   const t = new Date(iso).getTime();
@@ -488,17 +511,24 @@ export function serviceBreakdown(s) {
     return map.get(key);
   };
 
+  // A job priced across two services counts once under each, with its money
+  // split by line — that is the only way to answer "what does eaves work
+  // bring in" when eaves is usually sold alongside windows.
   s.jobs.forEach((job) => {
-    const e = entry(job.service);
-    e.jobs += 1;
-    e.booked += job.amount || 0;
-    if (job.status === 'completed') e.completed += 1;
-    if (job.paymentReceived) e.collected += job.amount || 0;
+    serviceList(job).forEach((line) => {
+      const e = entry(line.service);
+      e.jobs += 1;
+      e.booked += line.amount || 0;
+      if (job.status === 'completed') e.completed += 1;
+      if (job.paymentReceived) e.collected += line.amount || 0;
+    });
   });
   s.quotes.forEach((quote) => {
-    const e = entry(quote.service);
-    e.quotes += 1;
-    if (quote.status === 'accepted') e.accepted += 1;
+    serviceList(quote).forEach((line) => {
+      const e = entry(line.service);
+      e.quotes += 1;
+      if (quote.status === 'accepted') e.accepted += 1;
+    });
   });
 
   return [...map.values()]
@@ -508,6 +538,57 @@ export function serviceBreakdown(s) {
       closeRate: e.quotes ? e.accepted / e.quotes : null,
     }))
     .sort((a, b) => b.completed - a.completed || b.collected - a.collected);
+}
+
+// ---------------------------------------------------------------------------
+// Week in review
+// ---------------------------------------------------------------------------
+
+// Revenue is bucketed by when the work was DONE, not when it was typed in.
+// Marking last Tuesday's job complete today must not move this week's figure.
+function collectedBetween(jobs, from, to) {
+  return revenueBooked(jobs.filter((j) => j.paymentReceived && withinRange(j.completedAt, from, to)));
+}
+
+export function weekSummary(s, now = new Date()) {
+  const weekStart = startOfWeek(now);
+  const weekEnd = endOfToday(now);
+  const lastWeekStart = new Date(weekStart.getTime() - 7 * MS_DAY);
+
+  const doors = s.doors.filter((d) => withinRange(d.at, weekStart, weekEnd));
+  const quotes = s.quotes.filter((q) => withinRange(q.createdAt, weekStart, weekEnd));
+  const booked = s.jobs.filter((j) => withinRange(j.createdAt, weekStart, weekEnd));
+  const done = s.jobs.filter((j) => j.status === 'completed' && withinRange(j.completedAt, weekStart, weekEnd));
+
+  const collected = collectedBetween(s.jobs, weekStart, weekEnd);
+  const lastWeek = collectedBetween(s.jobs, lastWeekStart, weekStart);
+
+  // Best territory and service are judged on work finished this week.
+  const byTerritory = new Map();
+  const byService = new Map();
+  done.forEach((job) => {
+    if (job.territoryId) byTerritory.set(job.territoryId, (byTerritory.get(job.territoryId) || 0) + 1);
+    serviceList(job).forEach((line) => {
+      byService.set(line.service, (byService.get(line.service) || 0) + (line.amount || 0));
+    });
+  });
+  const topTerritoryId = [...byTerritory.entries()].sort((a, b) => b[1] - a[1])[0];
+  const topService = [...byService.entries()].sort((a, b) => b[1] - a[1])[0];
+  const territory = topTerritoryId ? s.territories.find((t) => t.id === topTerritoryId[0]) : null;
+
+  return {
+    weekStart,
+    doors: doors.length,
+    quotes: quotes.length,
+    booked: booked.length,
+    done: done.length,
+    collected,
+    lastWeek,
+    change: lastWeek ? (collected - lastWeek) / lastWeek : null,
+    averageJob: done.length ? revenueBooked(done) / done.length : 0,
+    topTerritory: territory ? { name: territory.name, jobs: topTerritoryId[1] } : null,
+    topService: topService ? { service: topService[0], amount: topService[1] } : null,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -576,7 +657,7 @@ export function recommendations(s, settings, now = new Date()) {
     });
   }
 
-  const weekDoors = s.doors.filter((d) => withinRange(d.at, startOfWeek(now), now)).length;
+  const weekDoors = s.doors.filter((d) => withinRange(d.at, startOfWeek(now), endOfToday(now))).length;
   if (weekDoors < 100) {
     out.push({
       icon: 'door',

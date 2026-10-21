@@ -1673,3 +1673,80 @@ button.terr-row {
 .service-card .row-main {
   min-width: 0;
 }
+
+/* --- Per-service pricing -------------------------------------------------- */
+
+.line-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.line-name {
+  flex: 1;
+  min-width: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.line-row .input-prefix {
+  flex: none;
+  width: 130px;
+}
+
+.line-total {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+
+.line-total .line-name {
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.line-total strong {
+  font-size: 17px;
+  font-variant-numeric: tabular-nums;
+}
+
+.week-split {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 4px;
+  text-align: center;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
+.week-split .week-num {
+  color: var(--ink);
+  font-size: 19px;
+}
+
+.week-split .week-num.gold {
+  color: var(--gold);
+  font-size: 17px;
+}
+
+.week-split .week-label {
+  color: var(--muted);
+}
+
+.week-notes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  margin-top: 12px;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+.week-notes strong {
+  color: var(--ink);
+}

@@ -47,6 +47,89 @@ function serviceChips(sheet, selector, initial) {
   return () => selected;
 }
 
+function serviceLinesField(sheet, chipSelector, priceSelector, initial) {
+  const chipRow = sheet.querySelector(chipSelector);
+  const priceBox = sheet.querySelector(priceSelector);
+  let selected =
+    initial && initial.length
+      ? initial.map((l) => ({ service: l.service, amount: l.amount || 0 }))
+      : [{ service: domain.SERVICES[0], amount: 0 }];
+
+  // A service saved before this list existed stays selectable rather than
+  // being silently swapped for something else.
+  const options = [...domain.SERVICES];
+  selected.forEach((l) => {
+    if (!options.includes(l.service)) options.unshift(l.service);
+  });
+
+  const symbol = domain.currencySymbol();
+  const priceInput = (id, value) =>
+    `<div class="input-prefix"><span class="prefix-symbol">${symbol}</span>` +
+    `<input type="number" id="${id}" inputmode="decimal" min="0" step="1" value="${value || ''}" /></div>`;
+
+  function draw() {
+    chipRow.innerHTML = '';
+    options.forEach((name) => {
+      const on = selected.some((l) => l.service === name);
+      const chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = 'chip' + (on ? ' active' : '');
+      chip.textContent = name;
+      chip.addEventListener('click', () => {
+        const i = selected.findIndex((l) => l.service === name);
+        // Something always has to be selected, so the last one cannot be
+        // switched off — only swapped by picking another.
+        if (i >= 0 && selected.length > 1) selected.splice(i, 1);
+        else if (i < 0) selected.push({ service: name, amount: 0 });
+        draw();
+      });
+      chipRow.appendChild(chip);
+    });
+
+    if (selected.length === 1) {
+      priceBox.innerHTML = `<label>Price</label>${priceInput('sl-0', selected[0].amount)}`;
+    } else {
+      priceBox.innerHTML =
+        '<label>Price per service</label>' +
+        selected
+          .map(
+            (line, i) =>
+              `<div class="line-row"><span class="line-name">${esc(line.service)}</span>${priceInput(
+                `sl-${i}`,
+                line.amount
+              )}</div>`
+          )
+          .join('') +
+        `<div class="line-row line-total"><span class="line-name">Total</span><strong id="sl-total">${domain.formatCurrency(
+          domain.linesTotal(selected)
+        )}</strong></div>`;
+    }
+
+    selected.forEach((line, i) => {
+      const input = priceBox.querySelector(`#sl-${i}`);
+      input.addEventListener('input', () => {
+        const value = parseFloat(input.value);
+        line.amount = value > 0 ? value : 0;
+        const total = priceBox.querySelector('#sl-total');
+        if (total) total.textContent = domain.formatCurrency(domain.linesTotal(selected));
+      });
+    });
+  }
+
+  draw();
+
+  return () => {
+    const lines = selected.map((l) => ({ service: l.service, amount: l.amount || 0 }));
+    return {
+      service: domain.formatServiceSummary(lines),
+      amount: domain.linesTotal(lines),
+      // A single service needs no breakdown; keeping it absent leaves those
+      // records exactly the shape they have always been.
+      lines: lines.length > 1 ? lines : null,
+    };
+  };
+}
+
 function tomorrowISO() {
   return new Date(Date.now() + 86400000).toISOString().slice(0, 10);
 }
@@ -398,9 +481,16 @@ export function openJobSheet(jobId) {
       ${linkActions(customer)}
       <div class="card">
         ${detailLine('Service', esc(job.service))}
+        ${
+          job.lines && job.lines.length > 1
+            ? job.lines
+                .map((l) => detailLine(`&nbsp;&nbsp;${esc(l.service)}`, domain.formatCurrency(l.amount)))
+                .join('')
+            : ''
+        }
         ${detailLine('Price', domain.formatCurrency(job.amount))}
         ${detailLine('Scheduled', job.scheduledAt ? domain.formatDateTime(job.scheduledAt) : 'Not scheduled')}
-        ${done ? detailLine('Completed', domain.formatDateTime(job.completedAt)) : ''}
+        ${done ? detailLine('Completed', domain.formatDate(job.completedAt)) : ''}
         ${done ? detailLine('Payment', job.paymentReceived ? esc(job.paymentMethod) : 'Not received') : ''}
         ${job.note ? detailNote(esc(job.note)) : ''}
       </div>
@@ -492,39 +582,62 @@ export function openEditJobModal(jobId) {
           : 'The customer and any door logged for it stay as they are.'
       }</p>
       <div class="field">
-        <label>Service</label>
+        <label>Service &mdash; tap more than one to price them separately</label>
         <div class="chip-row" id="e-services"></div>
       </div>
-      <div class="field">
-        <label>Price</label>
-        <div class="input-prefix">
-          <span class="prefix-symbol">${domain.currencySymbol()}</span>
-          <input type="number" id="e-amount" inputmode="decimal" min="0" step="1" value="${job.amount || ''}" />
-        </div>
-      </div>
+      <div class="field" id="e-prices"></div>
       <div class="field">
         <label>Scheduled for</label>
         <input type="datetime-local" id="e-when" value="${scheduled}" />
       </div>
+      ${
+        job.status === 'completed'
+          ? `<div class="field">
+        <label>Date the work was done</label>
+        <input type="date" id="e-done" value="${defaultCompletedDate(job)}" max="${todayISO()}" />
+      </div>`
+          : ''
+      }
       <div class="field">
         <label>Notes</label>
         <textarea id="e-note">${esc(job.note || '')}</textarea>
       </div>
       <button class="btn-primary" id="e-save">Save changes</button>
     `;
-    const getService = serviceChips(sheet, '#e-services', job.service);
+    const getServices = serviceLinesField(sheet, '#e-services', '#e-prices', domain.serviceList(job));
     sheet.querySelector('#e-save').addEventListener('click', () => {
-      const amount = parseFloat(sheet.querySelector('#e-amount').value);
+      const picked = getServices();
       const when = sheet.querySelector('#e-when').value;
+      const doneField = sheet.querySelector('#e-done');
       state.updateJob(jobId, {
-        service: getService(),
-        amount: amount > 0 ? amount : 0,
+        service: picked.service,
+        amount: picked.amount,
+        lines: picked.lines,
         scheduledAt: when ? new Date(when).toISOString() : null,
+        ...(doneField ? { completedAt: dateToStamp(doneField.value) } : {}),
         note: sheet.querySelector('#e-note').value.trim(),
       });
       close();
     });
   });
+}
+
+// A job marked complete days later was almost certainly done when it was
+// scheduled, so that is the better default than today.
+function defaultCompletedDate(job) {
+  const today = todayISO();
+  if (job.completedAt) return job.completedAt.slice(0, 10);
+  if (job.scheduledAt) {
+    const day = new Date(job.scheduledAt).toISOString().slice(0, 10);
+    if (day <= today) return day;
+  }
+  return today;
+}
+
+// Stored at midday so the date cannot slip either side of a timezone boundary.
+function dateToStamp(value) {
+  if (!value) return new Date().toISOString();
+  return new Date(`${value}T12:00:00`).toISOString();
 }
 
 // datetime-local wants local wall-clock time, not the stored UTC string.
@@ -561,6 +674,10 @@ export function openCompleteJobSheet(jobId) {
       <p class="sheet-title">Job complete</p>
       <p class="sheet-sub">${domain.formatCurrency(job.amount)} &middot; ${esc(job.service)}</p>
       <div class="field">
+        <label>Date the work was done</label>
+        <input type="date" id="done-on" value="${defaultCompletedDate(job)}" max="${todayISO()}" />
+      </div>
+      <div class="field">
         <label>Payment method</label>
         <div class="chip-row" id="pay-methods"></div>
       </div>
@@ -568,12 +685,13 @@ export function openCompleteJobSheet(jobId) {
       <button class="btn-secondary" id="unpaid" style="margin-top:10px">Complete — not paid yet</button>
     `;
     const getMethod = paymentChips(sheet.querySelector('#pay-methods'));
+    const doneOn = () => dateToStamp(sheet.querySelector('#done-on').value);
     sheet.querySelector('#paid').addEventListener('click', () => {
-      state.completeJob(jobId, { paymentReceived: true, paymentMethod: getMethod() });
+      state.completeJob(jobId, { paymentReceived: true, paymentMethod: getMethod(), completedAt: doneOn() });
       close();
     });
     sheet.querySelector('#unpaid').addEventListener('click', () => {
-      state.completeJob(jobId, { paymentReceived: false });
+      state.completeJob(jobId, { paymentReceived: false, completedAt: doneOn() });
       close();
     });
   });
@@ -618,6 +736,13 @@ export function openQuoteSheet(quoteId) {
       ${linkActions(customer)}
       <div class="card">
         ${detailLine('Service', esc(quote.service))}
+        ${
+          quote.lines && quote.lines.length > 1
+            ? quote.lines
+                .map((l) => detailLine(`&nbsp;&nbsp;${esc(l.service)}`, domain.formatCurrency(l.amount)))
+                .join('')
+            : ''
+        }
         ${detailLine('Quoted', domain.formatCurrency(quote.amount))}
         ${detailLine('Follow up', quote.followUpDate ? domain.relativeDay(quote.followUpDate) : 'No date')}
         ${quote.note ? detailNote(esc(quote.note)) : ''}
@@ -707,16 +832,10 @@ export function openEditQuoteModal(quoteId) {
       <p class="sheet-title">Edit quote</p>
       <p class="sheet-sub">The customer and any door logged for it stay as they are.</p>
       <div class="field">
-        <label>Service</label>
+        <label>Service &mdash; tap more than one to price them separately</label>
         <div class="chip-row" id="eq-services"></div>
       </div>
-      <div class="field">
-        <label>Quote amount</label>
-        <div class="input-prefix">
-          <span class="prefix-symbol">${domain.currencySymbol()}</span>
-          <input type="number" id="eq-amount" inputmode="decimal" min="0" step="1" value="${quote.amount || ''}" />
-        </div>
-      </div>
+      <div class="field" id="eq-prices"></div>
       <div class="field">
         <label>Follow up on</label>
         <input type="date" id="eq-followup" value="${quote.followUpDate || ''}" />
@@ -727,12 +846,13 @@ export function openEditQuoteModal(quoteId) {
       </div>
       <button class="btn-primary" id="eq-save">Save changes</button>
     `;
-    const getService = serviceChips(sheet, '#eq-services', quote.service);
+    const getServices = serviceLinesField(sheet, '#eq-services', '#eq-prices', domain.serviceList(quote));
     sheet.querySelector('#eq-save').addEventListener('click', () => {
-      const amount = parseFloat(sheet.querySelector('#eq-amount').value);
+      const picked = getServices();
       state.updateQuote(quoteId, {
-        service: getService(),
-        amount: amount > 0 ? amount : 0,
+        service: picked.service,
+        amount: picked.amount,
+        lines: picked.lines,
         followUpDate: sheet.querySelector('#eq-followup').value || null,
         note: sheet.querySelector('#eq-note').value.trim(),
       });
@@ -756,27 +876,19 @@ export function openNewQuoteModal(onDone) {
         <label>Customer name</label>
         <input type="text" id="n-name" placeholder="Sarah Johnson" />
       </div>
-      <div class="field-row">
-        <div class="field">
-          <label>Phone</label>
-          <input type="tel" id="n-phone" inputmode="tel" placeholder="416 555 0199" />
-        </div>
-        <div class="field">
-          <label>Amount</label>
-          <div class="input-prefix">
-            <span class="prefix-symbol">${domain.currencySymbol()}</span>
-            <input type="number" id="n-amount" inputmode="decimal" placeholder="350" min="0" step="1" />
-          </div>
-        </div>
+      <div class="field">
+        <label>Phone</label>
+        <input type="tel" id="n-phone" inputmode="tel" placeholder="416 555 0199" />
       </div>
       <div class="field">
         <label>Address</label>
         <input type="text" id="n-address" placeholder="123 Pinecrest Ave" />
       </div>
       <div class="field">
-        <label>Service</label>
+        <label>Service &mdash; tap more than one to price them separately</label>
         <div class="chip-row" id="n-services"></div>
       </div>
+      <div class="field" id="n-prices"></div>
       <div class="field">
         <label>Follow up on</label>
         <input type="date" id="n-followup" value="${todayISO()}" />
@@ -787,7 +899,7 @@ export function openNewQuoteModal(onDone) {
       </div>
       <button class="btn-primary" id="n-save">Save quote</button>
     `;
-    const getService = serviceChips(sheet, '#n-services');
+    const getServices = serviceLinesField(sheet, '#n-services', '#n-prices');
     const nameInput = sheet.querySelector('#n-name');
     sheet.querySelector('#n-save').addEventListener('click', () => {
       const name = nameInput.value.trim();
@@ -795,13 +907,14 @@ export function openNewQuoteModal(onDone) {
         nameInput.focus();
         return;
       }
-      const amount = parseFloat(sheet.querySelector('#n-amount').value);
+      const picked = getServices();
       state.createQuoteDirect({
         name,
         phone: sheet.querySelector('#n-phone').value.trim(),
         address: sheet.querySelector('#n-address').value.trim(),
-        service: getService(),
-        amount: amount > 0 ? amount : 0,
+        service: picked.service,
+        amount: picked.amount,
+        lines: picked.lines,
         followUpDate: sheet.querySelector('#n-followup').value || null,
         note: sheet.querySelector('#n-note').value.trim(),
       });
@@ -820,27 +933,19 @@ export function openNewJobModal(onDone) {
         <label>Customer name</label>
         <input type="text" id="n-name" placeholder="Michael Thompson" />
       </div>
-      <div class="field-row">
-        <div class="field">
-          <label>Phone</label>
-          <input type="tel" id="n-phone" inputmode="tel" placeholder="416 555 0199" />
-        </div>
-        <div class="field">
-          <label>Price</label>
-          <div class="input-prefix">
-            <span class="prefix-symbol">${domain.currencySymbol()}</span>
-            <input type="number" id="n-amount" inputmode="decimal" placeholder="485" min="0" step="1" />
-          </div>
-        </div>
+      <div class="field">
+        <label>Phone</label>
+        <input type="tel" id="n-phone" inputmode="tel" placeholder="416 555 0199" />
       </div>
       <div class="field">
         <label>Address</label>
         <input type="text" id="n-address" placeholder="45 Oakridge Dr" />
       </div>
       <div class="field">
-        <label>Service</label>
+        <label>Service &mdash; tap more than one to price them separately</label>
         <div class="chip-row" id="n-services"></div>
       </div>
+      <div class="field" id="n-prices"></div>
       <div class="field">
         <label>Scheduled for</label>
         <input type="datetime-local" id="n-when" value="${nowLocalDateTime()}" />
@@ -851,7 +956,7 @@ export function openNewJobModal(onDone) {
       </div>
       <button class="btn-primary" id="n-save">Add job</button>
     `;
-    const getService = serviceChips(sheet, '#n-services');
+    const getServices = serviceLinesField(sheet, '#n-services', '#n-prices');
     const nameInput = sheet.querySelector('#n-name');
     sheet.querySelector('#n-save').addEventListener('click', () => {
       const name = nameInput.value.trim();
@@ -859,14 +964,15 @@ export function openNewJobModal(onDone) {
         nameInput.focus();
         return;
       }
-      const amount = parseFloat(sheet.querySelector('#n-amount').value);
+      const picked = getServices();
       const when = sheet.querySelector('#n-when').value;
       state.createJobDirect({
         name,
         phone: sheet.querySelector('#n-phone').value.trim(),
         address: sheet.querySelector('#n-address').value.trim(),
-        service: getService(),
-        amount: amount > 0 ? amount : 0,
+        service: picked.service,
+        amount: picked.amount,
+        lines: picked.lines,
         scheduledAt: when ? new Date(when).toISOString() : null,
         note: sheet.querySelector('#n-note').value.trim(),
       });

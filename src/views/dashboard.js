@@ -38,6 +38,7 @@ export function renderDashboard(root) {
   const today = buildToday(s, now);
   if (today) page.appendChild(today);
 
+  page.appendChild(buildWeekSummary(s, now));
   page.appendChild(buildFunnel(s, now));
   page.appendChild(buildQuickActions());
 }
@@ -151,20 +152,19 @@ function metricCard(iconName, label, value, foot, footTone) {
 }
 
 function buildMetrics(s, now) {
+  const week = domain.weekSummary(s, now);
   const weekStart = domain.startOfWeek(now);
-  const lastWeekStart = new Date(weekStart.getTime() - 7 * 86400000);
+  const weekEnd = domain.endOfToday(now);
   const dayStart = domain.startOfDay(now);
 
-  const paidThisWeek = s.jobs.filter((j) => j.paymentReceived && domain.withinRange(j.completedAt, weekStart, now));
-  const paidLastWeek = s.jobs.filter((j) => j.paymentReceived && domain.withinRange(j.completedAt, lastWeekStart, weekStart));
-  const thisWeek = domain.revenueBooked(paidThisWeek);
-  const lastWeek = domain.revenueBooked(paidLastWeek);
-  const change = lastWeek ? (thisWeek - lastWeek) / lastWeek : null;
+  const thisWeek = week.collected;
+  const change = week.change;
 
   const openQuotes = s.quotes.filter((q) => q.status === 'open');
-  const bookedThisWeek = s.jobs.filter((j) => domain.withinRange(j.createdAt, weekStart, now));
-  const doorsThisWeek = s.doors.filter((d) => domain.withinRange(d.at, weekStart, now));
-  const doorsToday = s.doors.filter((d) => domain.withinRange(d.at, dayStart, now));
+  const bookedThisWeek = s.jobs.filter((j) => domain.withinRange(j.createdAt, weekStart, weekEnd));
+  const bookedDone = bookedThisWeek.filter((j) => j.status === 'completed').length;
+  const doorsThisWeek = s.doors.filter((d) => domain.withinRange(d.at, weekStart, weekEnd));
+  const doorsToday = s.doors.filter((d) => domain.withinRange(d.at, dayStart, weekEnd));
 
   const grid = document.createElement('div');
   grid.className = 'metric-grid';
@@ -188,7 +188,12 @@ function buildMetrics(s, now) {
       'briefcase',
       'Jobs Booked',
       String(bookedThisWeek.length),
-      `${domain.formatCurrency(domain.revenueBooked(bookedThisWeek))} booked`
+      bookedThisWeek.length
+        ? `${bookedDone} of ${bookedThisWeek.length} done · ${domain.formatCurrency(
+            domain.revenueBooked(bookedThisWeek)
+          )}`
+        : 'Nothing booked yet',
+      bookedDone && bookedDone === bookedThisWeek.length ? 'green' : ''
     ) +
     metricCard('door', 'Doors Knocked', String(doorsThisWeek.length), `Today: ${doorsToday.length}`);
   return grid;
@@ -264,9 +269,42 @@ function buildToday(s, now) {
   return card;
 }
 
+// The week in one card. It deliberately does NOT repeat the revenue headline
+// from the tile above: the tile answers "how much", this answers "off the back
+// of what". "Finished" counts work completed this week, which is not the same
+// as how many of this week's bookings are done — hence the different wording.
+function buildWeekSummary(s, now) {
+  const w = domain.weekSummary(s, now);
+  const card = document.createElement('div');
+  card.className = 'card';
+  card.innerHTML = `
+    <div class="card-row">
+      <p class="card-title">This week</p>
+      <span class="muted" style="font-size:13px">Since ${domain.formatDate(w.weekStart.toISOString())}</span>
+    </div>
+    <div class="week-split">
+      <div><p class="week-num">${w.doors}</p><p class="week-label">Doors</p></div>
+      <div><p class="week-num">${w.quotes}</p><p class="week-label">Quotes</p></div>
+      <div><p class="week-num">${w.booked}</p><p class="week-label">Booked</p></div>
+      <div><p class="week-num">${w.done}</p><p class="week-label">Finished</p></div>
+      <div><p class="week-num gold">${domain.formatCurrency(w.collected)}</p><p class="week-label">Collected</p></div>
+    </div>
+    ${
+      w.done || w.topTerritory || w.topService
+        ? `<div class="week-notes">
+            ${w.done ? `<span>Average job <strong>${domain.formatCurrency(w.averageJob)}</strong></span>` : ''}
+            ${w.topTerritory ? `<span>Best territory <strong>${esc(w.topTerritory.name)}</strong></span>` : ''}
+            ${w.topService ? `<span>Best service <strong>${esc(w.topService.service)}</strong></span>` : ''}
+          </div>`
+        : '<p class="card-sub" style="margin-top:12px">Nothing finished yet this week.</p>'
+    }
+  `;
+  return card;
+}
+
 function buildFunnel(s, now) {
   const weekStart = domain.startOfWeek(now);
-  const f = domain.funnel(s.doors.filter((d) => domain.withinRange(d.at, weekStart, now)));
+  const f = domain.funnel(s.doors.filter((d) => domain.withinRange(d.at, weekStart, domain.endOfToday(now))));
 
   const card = document.createElement('div');
   card.className = 'funnel-card';

@@ -88,9 +88,22 @@ the streets you actually covered, so none of it has to be typed up afterwards.
 backup/restore, location status and delete-all-data.
 
 **Dashboard** answers "how is the business doing right now": goal progress,
-this week's revenue against last week's, open quotes, jobs booked, doors
-knocked, today's schedule, the doors-to-quotes-to-jobs funnel, and four quick
-actions.
+this week's revenue against last week's, open quotes, jobs booked (with how
+many are done), doors knocked, today's schedule, a **This week** summary card,
+the doors-to-quotes-to-jobs funnel, and four quick actions.
+
+Weekly revenue is bucketed by **the date the work was done**, not the date it
+was typed in — marking last Tuesday's job complete today must not move this
+week's figure. Completing a job therefore asks for the date, defaulting to the
+day it was scheduled when that is in the past. Dates chosen as a day are stored
+at midday, so weekly windows run to the end of today (`domain.endOfToday`)
+rather than to the current moment.
+
+The **This week** card deliberately does not repeat the revenue tile above it:
+the tile answers "how much", the card answers "off the back of what" — doors,
+quotes, booked, finished, collected, plus average job, best territory and best
+service. Note "Finished" (work completed this week) is a different question
+from the tile's "3 of 6 done" (how many of this week's bookings are complete).
 
 **Services** (`#/services`, reached from the Goal screen) breaks every job and
 quote down by the kind of work: jobs completed, revenue collected, average job
@@ -113,6 +126,23 @@ quote was declined is `declined` too. Records written under the earlier
 The Dashboard carries a **backup reminder** when there is data at risk and no
 backup in 30 days (or none ever). Dismissing snoozes it for 7 days; downloading
 a backup silences it. A fresh install with no records is never nagged.
+
+## Services can be priced individually
+
+Tapping more than one service on New Quote or Add Job turns the single price
+field into one per service, with a running total. Those records store
+`lines: [{service, amount}]` alongside the usual `service` summary string and
+`amount` total, so every screen that predates this keeps working untouched. A
+single service stores no `lines` at all, leaving those records exactly the
+shape they have always had.
+
+The Services page splits such a job across both rows, with its money divided by
+line — the only way to answer "what does eaves work bring in" when eaves is
+usually sold alongside windows. Per-service job counts can therefore sum to
+more than the total job count, which the page says.
+
+The two door flows (Quote Given, Booked) stay single-select on purpose: speed
+matters more than itemisation when you are stood on a doorstep.
 
 ## Goals are a sequence
 

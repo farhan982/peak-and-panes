@@ -154,15 +154,26 @@ always did, and the extra taps only appear when two things are genuinely sold. T
 single service stores no `lines` at all, leaving those records exactly the
 shape they have always had.
 
-### Bundle discounts
+### Bundle deals
 
-A bundle is usually sold for less than its parts add up to. The lines always
-hold each service's **standalone price**, and the discount is stored separately
-as `discount`, with `amount` holding what the customer actually pays. That
-split is the point: if the customer later wants only the windows, the windows
-line is still a real quotable number rather than something already shaded by a
-deal on work they no longer want. Dropping back to one service therefore clears
-the discount and leaves that service at list price.
+A bundle usually goes out for less than its parts add up to. The lines hold
+each service's **standalone price** and `amount` holds **what the customer
+actually pays** — you type the agreed figure, and the saving is shown back to
+you. The discount is never stored: `bundleDiscount()` derives it as subtotal
+minus amount, so the two can't drift apart.
+
+Typing the agreed price rather than the discount is deliberate — it is the
+number said out loud to the customer and the one that has to be exact, while
+the discount is bookkeeping. The agreed figure is **sticky**: once set it stays
+put while line prices are adjusted around it, since changing your own list
+price does not change what you promised. Clearing the field makes it follow
+the subtotal again, and changing which services are selected resets it,
+because a deal struck on two services means nothing for a different pair.
+
+Keeping list prices on the lines is the point: if the customer later wants only
+the windows, that line is still a real quotable number rather than something
+already shaded by a deal on work they no longer want. Charging *above* list is
+reported honestly as "above list price" rather than as a negative discount.
 
 For reporting, `attributedLines()` spreads the money actually charged across
 the lines **in proportion**, so $35 off a $265 + $220 pair takes about $19 off

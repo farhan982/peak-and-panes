@@ -103,6 +103,14 @@ export function lineSubtotal(record) {
   return linesTotal(serviceList(record));
 }
 
+// Derived, never stored: the gap between what the services list at and what
+// the customer is actually charged. Keeping it out of the record means the
+// two can never drift apart. Negative means charged above list.
+export function bundleDiscount(record) {
+  if (!record || !Array.isArray(record.lines) || record.lines.length < 2) return 0;
+  return lineSubtotal(record) - (record.amount || 0);
+}
+
 // The money actually charged, spread across the lines in proportion. A bundle
 // discount belongs to the job as a whole, not to one of its services, so
 // knocking $35 off a $485 pair takes roughly $19 off the windows and $16 off

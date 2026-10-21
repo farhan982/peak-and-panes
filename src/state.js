@@ -341,7 +341,6 @@ export function logQuoteGiven({
   service,
   amount,
   lines,
-  discount,
   followUpDate,
   note,
 }) {
@@ -360,7 +359,6 @@ export function logQuoteGiven({
     service,
     amount: amount || 0,
     lines: lines || null,
-    discount: discount || 0,
     followUpDate: followUpDate || null,
     note: note || '',
     status: 'open',
@@ -391,7 +389,6 @@ export function logBooked({
   service,
   amount,
   lines,
-  discount,
   scheduledAt,
   note,
 }) {
@@ -411,7 +408,6 @@ export function logBooked({
     service,
     amount: amount || 0,
     lines: lines || null,
-    discount: discount || 0,
     scheduledAt: scheduledAt || null,
     note: note || '',
     status: 'scheduled',
@@ -436,7 +432,7 @@ export function logBooked({
 
 // Work that arrives by phone or referral rather than at a door. Same records,
 // no session and no door.
-export function createQuoteDirect({ name, phone, address, service, amount, lines, discount, followUpDate, note, source }) {
+export function createQuoteDirect({ name, phone, address, service, amount, lines, followUpDate, note, source }) {
   const customer = addCustomer({
     name,
     phone: phone || '',
@@ -452,7 +448,6 @@ export function createQuoteDirect({ name, phone, address, service, amount, lines
     service,
     amount: amount || 0,
     lines: lines || null,
-    discount: discount || 0,
     followUpDate: followUpDate || null,
     note: note || '',
     status: 'open',
@@ -463,7 +458,7 @@ export function createQuoteDirect({ name, phone, address, service, amount, lines
   return quote;
 }
 
-export function createJobDirect({ name, phone, email, address, service, amount, lines, discount, scheduledAt, note, source }) {
+export function createJobDirect({ name, phone, email, address, service, amount, lines, scheduledAt, note, source }) {
   const customer = addCustomer({
     name,
     phone: phone || '',
@@ -480,7 +475,6 @@ export function createJobDirect({ name, phone, email, address, service, amount, 
     service,
     amount: amount || 0,
     lines: lines || null,
-    discount: discount || 0,
     scheduledAt: scheduledAt || null,
     note: note || '',
     status: 'scheduled',
@@ -583,7 +577,6 @@ export function acceptQuote(quoteId, scheduledAt) {
     service: quote.service,
     amount: quote.amount,
     lines: quote.lines || null,
-    discount: quote.discount || 0,
     scheduledAt: scheduledAt || null,
     note: quote.note || '',
     status: 'scheduled',

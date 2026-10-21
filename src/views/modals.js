@@ -27,17 +27,19 @@ export function openSheet(buildContent) {
   return { sheet, close };
 }
 
-function serviceLinesField(sheet, chipSelector, priceSelector, initial, initialDiscount) {
+function serviceLinesField(sheet, chipSelector, priceSelector, initial, initialTotal) {
   const chipRow = sheet.querySelector(chipSelector);
   const priceBox = sheet.querySelector(priceSelector);
   let selected =
     initial && initial.length
       ? initial.map((l) => ({ service: l.service, amount: l.amount || 0 }))
       : [{ service: domain.SERVICES[0], amount: 0 }];
-  let discount = initialDiscount || 0;
 
-  // A service saved before this list existed stays selectable rather than
-  // being silently swapped for something else.
+  // The agreed price is what the customer was told, so once it has been set
+  // it stays put while line prices are adjusted around it. Until then it
+  // simply follows the subtotal.
+  let agreed = typeof initialTotal === 'number' ? initialTotal : null;
+
   const options = [...domain.SERVICES];
   selected.forEach((l) => {
     if (!options.includes(l.service)) options.unshift(l.service);
@@ -46,18 +48,29 @@ function serviceLinesField(sheet, chipSelector, priceSelector, initial, initialD
   const symbol = domain.currencySymbol();
   const priceInput = (id, value) =>
     `<div class="input-prefix"><span class="prefix-symbol">${symbol}</span>` +
-    `<input type="number" id="${id}" inputmode="decimal" min="0" step="1" value="${value || ''}" /></div>`;
+    `<input type="number" id="${id}" inputmode="decimal" min="0" step="1" value="${
+      value === null || value === undefined || value === '' ? '' : value
+    }" /></div>`;
 
   const subtotal = () => domain.linesTotal(selected);
-  // Never let a discount take the job below nothing.
-  const capped = () => Math.min(discount, subtotal());
-  const total = () => Math.max(0, subtotal() - capped());
+  const payable = () => (agreed === null ? subtotal() : Math.max(0, agreed));
+
+  function dealText() {
+    const gap = subtotal() - payable();
+    if (!gap) return '';
+    return gap > 0
+      ? `<span class="deal-off">${domain.formatCurrency(gap)} off the list price</span>`
+      : `<span class="deal-up">${domain.formatCurrency(-gap)} above list price</span>`;
+  }
 
   function refreshTotals() {
     const sub = priceBox.querySelector('#sl-subtotal');
-    const tot = priceBox.querySelector('#sl-total');
     if (sub) sub.textContent = domain.formatCurrency(subtotal());
-    if (tot) tot.textContent = domain.formatCurrency(total());
+    const paysInput = priceBox.querySelector('#sl-total');
+    // The agreed figure only follows the subtotal while it is untouched.
+    if (paysInput && agreed === null) paysInput.value = subtotal() || '';
+    const deal = priceBox.querySelector('#sl-deal');
+    if (deal) deal.innerHTML = dealText();
   }
 
   function draw() {
@@ -70,11 +83,11 @@ function serviceLinesField(sheet, chipSelector, priceSelector, initial, initialD
       chip.textContent = name;
       chip.addEventListener('click', () => {
         const i = selected.findIndex((l) => l.service === name);
-        // Something always has to be selected, so the last one cannot be
-        // switched off — only swapped by picking another.
         if (i >= 0 && selected.length > 1) selected.splice(i, 1);
         else if (i < 0) selected.push({ service: name, amount: 0 });
-        if (selected.length < 2) discount = 0;
+        // A deal struck on two services means nothing once it is one, and
+        // nothing for a service that has just been added.
+        agreed = null;
         draw();
       });
       chipRow.appendChild(chip);
@@ -83,8 +96,6 @@ function serviceLinesField(sheet, chipSelector, priceSelector, initial, initialD
     if (selected.length === 1) {
       priceBox.innerHTML = `<label>Price</label>${priceInput('sl-0', selected[0].amount)}`;
     } else {
-      // Each line keeps its standalone price; the discount sits apart from
-      // them, so dropping a service later still leaves a real number behind.
       priceBox.innerHTML =
         '<label>Price per service</label>' +
         selected
@@ -98,12 +109,11 @@ function serviceLinesField(sheet, chipSelector, priceSelector, initial, initialD
           .join('') +
         `<div class="line-row line-sub"><span class="line-name">Subtotal</span>` +
         `<strong id="sl-subtotal">${domain.formatCurrency(subtotal())}</strong></div>` +
-        `<div class="line-row"><span class="line-name">Bundle discount</span>${priceInput(
-          'sl-discount',
-          discount
+        `<div class="line-row line-total"><span class="line-name">Customer pays</span>${priceInput(
+          'sl-total',
+          payable() || ''
         )}</div>` +
-        `<div class="line-row line-total"><span class="line-name">Customer pays</span>` +
-        `<strong id="sl-total">${domain.formatCurrency(total())}</strong></div>`;
+        `<p class="deal-note" id="sl-deal">${dealText()}</p>`;
     }
 
     selected.forEach((line, i) => {
@@ -115,11 +125,17 @@ function serviceLinesField(sheet, chipSelector, priceSelector, initial, initialD
       });
     });
 
-    const discountInput = priceBox.querySelector('#sl-discount');
-    if (discountInput) {
-      discountInput.addEventListener('input', () => {
-        const value = parseFloat(discountInput.value);
-        discount = value > 0 ? value : 0;
+    const paysInput = priceBox.querySelector('#sl-total');
+    if (paysInput) {
+      paysInput.addEventListener('input', () => {
+        // Cleared goes back to following the subtotal; a typed zero is a
+        // deliberate free job and is respected.
+        if (paysInput.value === '') {
+          agreed = null;
+        } else {
+          const value = parseFloat(paysInput.value);
+          agreed = isNaN(value) ? null : Math.max(0, value);
+        }
         refreshTotals();
       });
     }
@@ -131,11 +147,9 @@ function serviceLinesField(sheet, chipSelector, priceSelector, initial, initialD
     const lines = selected.map((l) => ({ service: l.service, amount: l.amount || 0 }));
     return {
       service: domain.formatServiceSummary(lines),
-      // The total is what the customer is charged; the lines stay at list
-      // price so a single service can still be quoted from them later.
-      amount: lines.length > 1 ? total() : domain.linesTotal(lines),
+      // Lines keep list prices; the total is what was actually agreed.
+      amount: lines.length > 1 ? payable() : domain.linesTotal(lines),
       lines: lines.length > 1 ? lines : null,
-      discount: lines.length > 1 ? capped() : 0,
     };
   };
 }
@@ -237,7 +251,6 @@ export function openQuoteModal({ sessionId, territoryId, address }, onDone) {
         service: picked.service,
         amount: picked.amount,
         lines: picked.lines,
-        discount: picked.discount,
         followUpDate: sheet.querySelector('#q-followup').value || null,
         note: sheet.querySelector('#q-note').value.trim(),
       });
@@ -305,7 +318,6 @@ export function openBookedModal({ sessionId, territoryId, address }, onDone) {
         service: picked.service,
         amount: picked.amount,
         lines: picked.lines,
-        discount: picked.discount,
         scheduledAt: when ? new Date(when).toISOString() : null,
         note: sheet.querySelector('#b-note').value.trim(),
       });
@@ -486,8 +498,11 @@ export function openJobSheet(jobId) {
             ? job.lines
                 .map((l) => detailLine(`&nbsp;&nbsp;${esc(l.service)}`, domain.formatCurrency(l.amount)))
                 .join('') +
-              (job.discount
-                ? detailLine('&nbsp;&nbsp;Bundle discount', `&minus;${domain.formatCurrency(job.discount)}`)
+              (domain.bundleDiscount(job)
+                ? detailLine(
+                    '&nbsp;&nbsp;Bundle deal',
+                    `&minus;${domain.formatCurrency(domain.bundleDiscount(job))}`
+                  )
                 : '')
             : ''
         }
@@ -607,7 +622,7 @@ export function openEditJobModal(jobId) {
       </div>
       <button class="btn-primary" id="e-save">Save changes</button>
     `;
-    const getServices = serviceLinesField(sheet, '#e-services', '#e-prices', domain.serviceList(job), job.discount);
+    const getServices = serviceLinesField(sheet, '#e-services', '#e-prices', domain.serviceList(job), job.amount);
     sheet.querySelector('#e-save').addEventListener('click', () => {
       const picked = getServices();
       const when = sheet.querySelector('#e-when').value;
@@ -616,8 +631,6 @@ export function openEditJobModal(jobId) {
         service: picked.service,
         amount: picked.amount,
         lines: picked.lines,
-        discount: picked.discount,
-        discount: picked.discount,
         scheduledAt: when ? new Date(when).toISOString() : null,
         ...(doneField ? { completedAt: dateToStamp(doneField.value) } : {}),
         note: sheet.querySelector('#e-note').value.trim(),
@@ -746,8 +759,11 @@ export function openQuoteSheet(quoteId) {
             ? quote.lines
                 .map((l) => detailLine(`&nbsp;&nbsp;${esc(l.service)}`, domain.formatCurrency(l.amount)))
                 .join('') +
-              (quote.discount
-                ? detailLine('&nbsp;&nbsp;Bundle discount', `&minus;${domain.formatCurrency(quote.discount)}`)
+              (domain.bundleDiscount(quote)
+                ? detailLine(
+                    '&nbsp;&nbsp;Bundle deal',
+                    `&minus;${domain.formatCurrency(domain.bundleDiscount(quote))}`
+                  )
                 : '')
             : ''
         }
@@ -854,15 +870,13 @@ export function openEditQuoteModal(quoteId) {
       </div>
       <button class="btn-primary" id="eq-save">Save changes</button>
     `;
-    const getServices = serviceLinesField(sheet, '#eq-services', '#eq-prices', domain.serviceList(quote), quote.discount);
+    const getServices = serviceLinesField(sheet, '#eq-services', '#eq-prices', domain.serviceList(quote), quote.amount);
     sheet.querySelector('#eq-save').addEventListener('click', () => {
       const picked = getServices();
       state.updateQuote(quoteId, {
         service: picked.service,
         amount: picked.amount,
         lines: picked.lines,
-        discount: picked.discount,
-        discount: picked.discount,
         followUpDate: sheet.querySelector('#eq-followup').value || null,
         note: sheet.querySelector('#eq-note').value.trim(),
       });
@@ -925,7 +939,6 @@ export function openNewQuoteModal(onDone) {
         service: picked.service,
         amount: picked.amount,
         lines: picked.lines,
-        discount: picked.discount,
         followUpDate: sheet.querySelector('#n-followup').value || null,
         note: sheet.querySelector('#n-note').value.trim(),
       });
@@ -984,7 +997,6 @@ export function openNewJobModal(onDone) {
         service: picked.service,
         amount: picked.amount,
         lines: picked.lines,
-        discount: picked.discount,
         scheduledAt: when ? new Date(when).toISOString() : null,
         note: sheet.querySelector('#n-note').value.trim(),
       });

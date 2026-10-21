@@ -158,17 +158,24 @@ shape they have always had.
 
 A bundle usually goes out for less than its parts add up to. The lines hold
 each service's **standalone price** and `amount` holds **what the customer
-actually pays** — you type the agreed figure, and the saving is shown back to
-you. The discount is never stored: `bundleDiscount()` derives it as subtotal
-minus amount, so the two can't drift apart.
+actually pays** — you type the agreed figure in **Bundle deal**, and the saving
+is shown back to you. The discount is never stored: `bundleDiscount()` derives
+it as subtotal minus amount, so the two can't drift apart.
+
+**The Bundle deal field starts empty, with the subtotal as its placeholder, and
+is never written to programmatically.** It was once pre-filled with the
+subtotal, which made it impossible to type a lower number: clearing the field
+set the state back to "following the subtotal", and the refresh that followed
+immediately put the subtotal back, so it fought every keystroke. Empty means no
+deal. Only the placeholder moves when line prices change.
 
 Typing the agreed price rather than the discount is deliberate — it is the
 number said out loud to the customer and the one that has to be exact, while
 the discount is bookkeeping. The agreed figure is **sticky**: once set it stays
 put while line prices are adjusted around it, since changing your own list
-price does not change what you promised. Clearing the field makes it follow
-the subtotal again, and changing which services are selected resets it,
-because a deal struck on two services means nothing for a different pair.
+price does not change what you promised. Clearing the field means no deal
+again, and changing which services are selected resets it, because a deal
+struck on two services means nothing for a different pair.
 
 Keeping list prices on the lines is the point: if the customer later wants only
 the windows, that line is still a real quotable number rather than something

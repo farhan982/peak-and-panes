@@ -35,10 +35,12 @@ function serviceLinesField(sheet, chipSelector, priceSelector, initial, initialT
       ? initial.map((l) => ({ service: l.service, amount: l.amount || 0 }))
       : [{ service: domain.SERVICES[0], amount: 0 }];
 
-  // The agreed price is what the customer was told, so once it has been set
-  // it stays put while line prices are adjusted around it. Until then it
-  // simply follows the subtotal.
-  let agreed = typeof initialTotal === 'number' ? initialTotal : null;
+  // null means "no deal — they pay the subtotal". The field is left EMPTY in
+  // that state with the subtotal as its placeholder, rather than pre-filled:
+  // a pre-filled value had to be cleared before a lower one could be typed,
+  // and clearing it put the subtotal straight back, so it fought every
+  // keystroke. Nothing to clear, nothing to fight.
+  let agreed = null;
 
   const options = [...domain.SERVICES];
   selected.forEach((l) => {
@@ -55,9 +57,14 @@ function serviceLinesField(sheet, chipSelector, priceSelector, initial, initialT
   const subtotal = () => domain.linesTotal(selected);
   const payable = () => (agreed === null ? subtotal() : Math.max(0, agreed));
 
+  // Only treat a saved total as a deal when it actually differs from what the
+  // services add up to; otherwise the field stays empty.
+  if (typeof initialTotal === 'number' && initialTotal !== subtotal()) agreed = initialTotal;
+
   function dealText() {
+    if (agreed === null) return '<span class="deal-up">Leave blank to charge the full subtotal</span>';
     const gap = subtotal() - payable();
-    if (!gap) return '';
+    if (!gap) return '<span class="deal-up">Same as the subtotal</span>';
     return gap > 0
       ? `<span class="deal-off">${domain.formatCurrency(gap)} off the list price</span>`
       : `<span class="deal-up">${domain.formatCurrency(-gap)} above list price</span>`;
@@ -66,9 +73,10 @@ function serviceLinesField(sheet, chipSelector, priceSelector, initial, initialT
   function refreshTotals() {
     const sub = priceBox.querySelector('#sl-subtotal');
     if (sub) sub.textContent = domain.formatCurrency(subtotal());
-    const paysInput = priceBox.querySelector('#sl-total');
-    // The agreed figure only follows the subtotal while it is untouched.
-    if (paysInput && agreed === null) paysInput.value = subtotal() || '';
+    // The deal field is never written to programmatically — only its hint
+    // moves, so typing into it is never interrupted.
+    const dealInput = priceBox.querySelector('#sl-total');
+    if (dealInput) dealInput.placeholder = String(subtotal() || '');
     const deal = priceBox.querySelector('#sl-deal');
     if (deal) deal.innerHTML = dealText();
   }
@@ -109,10 +117,10 @@ function serviceLinesField(sheet, chipSelector, priceSelector, initial, initialT
           .join('') +
         `<div class="line-row line-sub"><span class="line-name">Subtotal</span>` +
         `<strong id="sl-subtotal">${domain.formatCurrency(subtotal())}</strong></div>` +
-        `<div class="line-row line-total"><span class="line-name">Customer pays</span>${priceInput(
-          'sl-total',
-          payable() || ''
-        )}</div>` +
+        `<div class="line-row line-total"><span class="line-name">Bundle deal</span>` +
+        `<div class="input-prefix"><span class="prefix-symbol">${symbol}</span>` +
+        `<input type="number" id="sl-total" inputmode="decimal" min="0" step="1" ` +
+        `placeholder="${subtotal() || ''}" value="${agreed === null ? '' : agreed}" /></div></div>` +
         `<p class="deal-note" id="sl-deal">${dealText()}</p>`;
     }
 
@@ -128,7 +136,7 @@ function serviceLinesField(sheet, chipSelector, priceSelector, initial, initialT
     const paysInput = priceBox.querySelector('#sl-total');
     if (paysInput) {
       paysInput.addEventListener('input', () => {
-        // Cleared goes back to following the subtotal; a typed zero is a
+        // Empty means no deal: they pay the subtotal. A typed zero is a
         // deliberate free job and is respected.
         if (paysInput.value === '') {
           agreed = null;

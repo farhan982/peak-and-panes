@@ -340,6 +340,7 @@ export function logQuoteGiven({
   phone,
   service,
   amount,
+  lines,
   followUpDate,
   note,
 }) {
@@ -357,6 +358,7 @@ export function logQuoteGiven({
     territoryId,
     service,
     amount: amount || 0,
+    lines: lines || null,
     followUpDate: followUpDate || null,
     note: note || '',
     status: 'open',
@@ -386,6 +388,7 @@ export function logBooked({
   email,
   service,
   amount,
+  lines,
   scheduledAt,
   note,
 }) {
@@ -404,6 +407,7 @@ export function logBooked({
     territoryId,
     service,
     amount: amount || 0,
+    lines: lines || null,
     scheduledAt: scheduledAt || null,
     note: note || '',
     status: 'scheduled',

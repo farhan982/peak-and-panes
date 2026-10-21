@@ -27,26 +27,6 @@ export function openSheet(buildContent) {
   return { sheet, close };
 }
 
-// A row of single-select chips. Returns a getter for the current value so
-// callers don't have to re-query the DOM.
-function serviceChips(sheet, selector, initial) {
-  let selected = initial || domain.SERVICES[0];
-  const row = sheet.querySelector(selector);
-  domain.SERVICES.forEach((service) => {
-    const chip = document.createElement('button');
-    chip.type = 'button';
-    chip.className = 'chip' + (service === selected ? ' active' : '');
-    chip.textContent = service;
-    chip.addEventListener('click', () => {
-      selected = service;
-      row.querySelectorAll('.chip').forEach((c) => c.classList.remove('active'));
-      chip.classList.add('active');
-    });
-    row.appendChild(chip);
-  });
-  return () => selected;
-}
-
 function serviceLinesField(sheet, chipSelector, priceSelector, initial) {
   const chipRow = sheet.querySelector(chipSelector);
   const priceBox = sheet.querySelector(priceSelector);
@@ -195,16 +175,10 @@ export function openQuoteModal({ sessionId, territoryId, address }, onDone) {
         <input type="tel" id="q-phone" inputmode="tel" placeholder="416 555 0199" />
       </div>
       <div class="field">
-        <label>Service</label>
+        <label>Service &mdash; tap more than one to price them separately</label>
         <div class="chip-row" id="q-services"></div>
       </div>
-      <div class="field">
-        <label>Quote amount</label>
-        <div class="input-prefix">
-          <span class="prefix-symbol">${domain.currencySymbol()}</span>
-          <input type="number" id="q-amount" inputmode="decimal" placeholder="350" min="0" step="1" />
-        </div>
-      </div>
+      <div class="field" id="q-prices"></div>
       <div class="field">
         <label>Follow up on</label>
         <input type="date" id="q-followup" value="${tomorrowISO()}" />
@@ -215,7 +189,7 @@ export function openQuoteModal({ sessionId, territoryId, address }, onDone) {
       </div>
       <button class="btn-primary" id="q-save">Log quote</button>
     `;
-    const getService = serviceChips(sheet, '#q-services');
+    const getServices = serviceLinesField(sheet, '#q-services', '#q-prices');
     const nameInput = sheet.querySelector('#q-name');
     sheet.querySelector('#q-save').addEventListener('click', () => {
       const name = nameInput.value.trim();
@@ -223,15 +197,16 @@ export function openQuoteModal({ sessionId, territoryId, address }, onDone) {
         nameInput.focus();
         return;
       }
-      const amount = parseFloat(sheet.querySelector('#q-amount').value);
+      const picked = getServices();
       state.logQuoteGiven({
         sessionId,
         territoryId,
         address,
         name,
         phone: sheet.querySelector('#q-phone').value.trim(),
-        service: getService(),
-        amount: amount > 0 ? amount : 0,
+        service: picked.service,
+        amount: picked.amount,
+        lines: picked.lines,
         followUpDate: sheet.querySelector('#q-followup').value || null,
         note: sheet.querySelector('#q-note').value.trim(),
       });
@@ -252,18 +227,9 @@ export function openBookedModal({ sessionId, territoryId, address }, onDone) {
         <label>Customer name</label>
         <input type="text" id="b-name" placeholder="Michael Thompson" />
       </div>
-      <div class="field-row">
-        <div class="field">
-          <label>Phone</label>
-          <input type="tel" id="b-phone" inputmode="tel" placeholder="416 555 0199" />
-        </div>
-        <div class="field">
-          <label>Price</label>
-          <div class="input-prefix">
-            <span class="prefix-symbol">${domain.currencySymbol()}</span>
-            <input type="number" id="b-amount" inputmode="decimal" placeholder="485" min="0" step="1" />
-          </div>
-        </div>
+      <div class="field">
+        <label>Phone</label>
+        <input type="tel" id="b-phone" inputmode="tel" placeholder="416 555 0199" />
       </div>
       <div class="field">
         <label>Email (optional)</label>
@@ -274,9 +240,10 @@ export function openBookedModal({ sessionId, territoryId, address }, onDone) {
         <input type="text" id="b-address" value="${esc(address || '')}" placeholder="45 Oakridge Dr" />
       </div>
       <div class="field">
-        <label>Service</label>
+        <label>Service &mdash; tap more than one to price them separately</label>
         <div class="chip-row" id="b-services"></div>
       </div>
+      <div class="field" id="b-prices"></div>
       <div class="field">
         <label>Scheduled for</label>
         <input type="datetime-local" id="b-when" value="${nowLocalDateTime()}" />
@@ -287,7 +254,7 @@ export function openBookedModal({ sessionId, territoryId, address }, onDone) {
       </div>
       <button class="btn-primary" id="b-save">Book job</button>
     `;
-    const getService = serviceChips(sheet, '#b-services');
+    const getServices = serviceLinesField(sheet, '#b-services', '#b-prices');
     const nameInput = sheet.querySelector('#b-name');
     sheet.querySelector('#b-save').addEventListener('click', () => {
       const name = nameInput.value.trim();
@@ -295,7 +262,7 @@ export function openBookedModal({ sessionId, territoryId, address }, onDone) {
         nameInput.focus();
         return;
       }
-      const amount = parseFloat(sheet.querySelector('#b-amount').value);
+      const picked = getServices();
       const when = sheet.querySelector('#b-when').value;
       state.logBooked({
         sessionId,
@@ -304,8 +271,9 @@ export function openBookedModal({ sessionId, territoryId, address }, onDone) {
         name,
         phone: sheet.querySelector('#b-phone').value.trim(),
         email: sheet.querySelector('#b-email').value.trim(),
-        service: getService(),
-        amount: amount > 0 ? amount : 0,
+        service: picked.service,
+        amount: picked.amount,
+        lines: picked.lines,
         scheduledAt: when ? new Date(when).toISOString() : null,
         note: sheet.querySelector('#b-note').value.trim(),
       });

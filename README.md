@@ -127,10 +127,28 @@ The Dashboard carries a **backup reminder** when there is data at risk and no
 backup in 30 days (or none ever). Dismissing snoozes it for 7 days; downloading
 a backup silences it. A fresh install with no records is never nagged.
 
+## Services are components, not bundles
+
+`domain.SERVICES` holds only things that can be sold on their own: Exterior
+Windows, Interior Windows, Eaves, Painting, Odd Job. It used to also carry
+bundles — "Interior + Exterior", "Windows + Eaves" — which overlapped their own
+parts, so picking a bundle alongside one of its components double-counted the
+same work. Bundles are now built by tapping their parts.
+
+Don't reintroduce a bundle as a service. If one is ever wanted as a shortcut it
+has to expand into component lines, not sit beside them as a seventh option.
+
+Jobs logged under the old bundle names keep working: a service that is no
+longer in the list stays selectable on the record that uses it. They are not
+split retroactively — the breakdown was never recorded, so any split would be
+invented — and they keep their own row on the Services page.
+
 ## Services can be priced individually
 
-Tapping more than one service on New Quote or Add Job turns the single price
-field into one per service, with a running total. Those records store
+Tapping more than one service turns the single price field into one per
+service, with a running total. Every service picker in the app uses the same
+component, including the two door flows: one service costs exactly the taps it
+always did, and the extra taps only appear when two things are genuinely sold. Those records store
 `lines: [{service, amount}]` alongside the usual `service` summary string and
 `amount` total, so every screen that predates this keeps working untouched. A
 single service stores no `lines` at all, leaving those records exactly the
@@ -140,9 +158,6 @@ The Services page splits such a job across both rows, with its money divided by
 line — the only way to answer "what does eaves work bring in" when eaves is
 usually sold alongside windows. Per-service job counts can therefore sum to
 more than the total job count, which the page says.
-
-The two door flows (Quote Given, Booked) stay single-select on purpose: speed
-matters more than itemisation when you are stood on a doorstep.
 
 ## Goals are a sequence
 

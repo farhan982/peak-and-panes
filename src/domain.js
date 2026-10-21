@@ -18,12 +18,14 @@ export function outcomeLabel(key) {
   return found ? found.label : key;
 }
 
+// Components, not bundles. "Interior + Exterior" contained "Exterior Windows"
+// and "Windows + Eaves" contained "Eaves", so picking a bundle alongside its
+// own part double-counted the same work. A bundle is now built by tapping its
+// parts, which also makes per-service revenue answerable.
 export const SERVICES = [
   'Exterior Windows',
-  'Interior + Exterior',
+  'Interior Windows',
   'Eaves',
-  'Windows + Eaves',
-  'Interior + Exterior + Eaves',
   'Painting',
   'Odd Job',
 ];

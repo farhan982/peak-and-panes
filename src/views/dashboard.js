@@ -1,6 +1,7 @@
 import * as state from '../state.js';
 import * as domain from '../domain.js';
 import { icon } from '../icons.js';
+import { localDay } from '../storage.js';
 import { buildScreen } from './header.js';
 import {
   esc,
@@ -182,7 +183,11 @@ function buildMetrics(s, now) {
       'doc',
       'Open Quotes',
       String(openQuotes.length),
-      `${domain.formatCurrency(openQuotes.reduce((sum, q) => sum + (q.amount || 0), 0))} in play`
+      (() => {
+        const leads = openQuotes.filter((q) => domain.isLead(q)).length;
+        const inPlay = domain.formatCurrency(openQuotes.reduce((sum, q) => sum + (q.amount || 0), 0));
+        return leads ? `${inPlay} in play · ${leads} lead${leads === 1 ? '' : 's'}` : `${inPlay} in play`;
+      })()
     ) +
     metricCard(
       'briefcase',
@@ -204,7 +209,7 @@ function buildMetrics(s, now) {
 function buildToday(s, now) {
   const dayStart = domain.startOfDay(now);
   const dayEnd = new Date(dayStart.getTime() + 86400000);
-  const today = now.toISOString().slice(0, 10);
+  const today = localDay(now);
 
   const jobs = s.jobs
     .filter((j) => j.status !== 'completed' && domain.withinRange(j.scheduledAt, dayStart, dayEnd))

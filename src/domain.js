@@ -1,3 +1,5 @@
+import { localDay } from './storage.js';
+
 // ---------------------------------------------------------------------------
 // Vocabulary
 // ---------------------------------------------------------------------------
@@ -336,15 +338,24 @@ export function lastVisited(state, territoryId) {
 // Formatting helpers
 // ---------------------------------------------------------------------------
 
+// A bare "2026-10-23" is parsed as UTC midnight, which is the previous
+// evening anywhere west of Greenwich — so a follow-up date displayed a day
+// early. Anchoring date-only strings at local midday avoids it entirely.
+function toLocalDate(iso) {
+  if (typeof iso === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(iso)) {
+    return new Date(`${iso}T12:00:00`);
+  }
+  return new Date(iso);
+}
+
 export function formatDate(iso) {
   if (!iso) return '';
-  const d = new Date(iso);
-  return d.toLocaleDateString('en-CA', { month: 'short', day: 'numeric' });
+  return toLocalDate(iso).toLocaleDateString('en-CA', { month: 'short', day: 'numeric' });
 }
 
 export function formatDateTime(iso) {
   if (!iso) return '';
-  const d = new Date(iso);
+  const d = toLocalDate(iso);
   return d.toLocaleString('en-CA', {
     month: 'short',
     day: 'numeric',
@@ -366,8 +377,8 @@ export function formatPercent(fraction) {
 export function relativeDay(iso) {
   if (!iso) return '';
   const day = iso.slice(0, 10);
-  const today = new Date().toISOString().slice(0, 10);
-  const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+  const today = localDay();
+  const tomorrow = localDay(new Date(Date.now() + 86400000));
   if (day === today) return 'Today';
   if (day === tomorrow) return 'Tomorrow';
   return formatDate(iso);
@@ -411,6 +422,12 @@ export function daysBetween(from, to) {
 // ---------------------------------------------------------------------------
 // Goal
 // ---------------------------------------------------------------------------
+
+// An open quote with no price on it yet: somebody interested at the door who
+// has not been quoted a number.
+export function isLead(quote) {
+  return quote.status === 'open' && !quote.amount;
+}
 
 export function activeGoal(settings) {
   return (settings.goals || []).find((g) => g.status === 'active') || null;
@@ -554,6 +571,7 @@ export function serviceBreakdown(s) {
     });
   });
   s.quotes.forEach((quote) => {
+    if (!quote.service) return;
     attributedLines(quote).forEach((line) => {
       const e = entry(line.service);
       e.quotes += 1;
@@ -644,7 +662,7 @@ export function funnel(doors) {
 // actually see. Ordered by how much money is sitting behind them.
 export function recommendations(s, settings, now = new Date()) {
   const out = [];
-  const today = now.toISOString().slice(0, 10);
+  const today = localDay(now);
 
   const unpaid = awaitingPayment(s.jobs);
   if (unpaid.length) {

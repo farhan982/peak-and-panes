@@ -1,7 +1,7 @@
 import * as state from '../state.js';
 import * as domain from '../domain.js';
 import * as geo from '../geo.js';
-import { nowLocalDateTime, todayISO } from '../storage.js';
+import { nowLocalDateTime, todayISO, localDay, daysFromToday } from '../storage.js';
 
 export function esc(value) {
   return String(value == null ? '' : value).replace(
@@ -165,7 +165,7 @@ function serviceLinesField(sheet, chipSelector, priceSelector, initial, initialT
 }
 
 function tomorrowISO() {
-  return new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+  return daysFromToday(1);
 }
 
 // --- Territory -------------------------------------------------------------
@@ -379,11 +379,15 @@ export function openInterestedModal({ sessionId, territoryId, address }, onDone)
   openSheet((sheet, close) => {
     sheet.innerHTML = `
       <p class="sheet-title">Interested</p>
-      <p class="sheet-sub">They might call you. A name makes it possible to find
-        them when they do — everything here is optional.</p>
+      <p class="sheet-sub">They might call you. Give a name and it joins your open
+        list, ready to book in one tap when they say yes.</p>
       <div class="field">
         <label>Name</label>
         <input type="text" id="i-name" placeholder="Homeowner at ${esc(address || 'this door')}" />
+      </div>
+      <div class="field">
+        <label>Check back on (optional)</label>
+        <input type="date" id="i-date" />
       </div>
       <div class="field">
         <label>Notes</label>
@@ -397,6 +401,7 @@ export function openInterestedModal({ sessionId, territoryId, address }, onDone)
         territoryId,
         address,
         name: sheet.querySelector('#i-name').value.trim(),
+        followUpDate: sheet.querySelector('#i-date').value || null,
         note: sheet.querySelector('#i-note').value.trim(),
       });
       close();
@@ -654,9 +659,9 @@ export function openEditJobModal(jobId) {
 // scheduled, so that is the better default than today.
 function defaultCompletedDate(job) {
   const today = todayISO();
-  if (job.completedAt) return job.completedAt.slice(0, 10);
+  if (job.completedAt) return localDay(job.completedAt);
   if (job.scheduledAt) {
-    const day = new Date(job.scheduledAt).toISOString().slice(0, 10);
+    const day = localDay(job.scheduledAt);
     if (day <= today) return day;
   }
   return today;
@@ -675,6 +680,28 @@ function toLocalInput(iso) {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(
     d.getMinutes()
   )}`;
+}
+
+const NOT_PAID = 'Not paid yet';
+
+function paymentChoice(container, initial) {
+  let selected = initial || domain.PAYMENT_METHODS[0];
+  [...domain.PAYMENT_METHODS, NOT_PAID].forEach((method) => {
+    const chip = document.createElement('button');
+    chip.type = 'button';
+    chip.className = 'chip' + (method === selected ? ' active' : '');
+    chip.textContent = method;
+    chip.addEventListener('click', () => {
+      selected = method;
+      container.querySelectorAll('.chip').forEach((c) => c.classList.remove('active'));
+      chip.classList.add('active');
+    });
+    container.appendChild(chip);
+  });
+  return () => ({
+    paymentReceived: selected !== NOT_PAID,
+    paymentMethod: selected === NOT_PAID ? null : selected,
+  });
 }
 
 function paymentChips(container) {
@@ -753,8 +780,9 @@ export function openQuoteSheet(quoteId) {
   if (!quote) return;
   const customer = state.getCustomer(quote.customerId);
   const open = quote.status === 'open';
+  const lead = domain.isLead(quote);
   const STATUS = { open: ['Open', 'gold'], accepted: ['Accepted', 'green'], declined: ['Declined', 'orange'] };
-  const [statusLabel, statusTone] = STATUS[quote.status] || STATUS.open;
+  const [statusLabel, statusTone] = lead ? ['Lead', 'purple'] : STATUS[quote.status] || STATUS.open;
 
   openSheet((sheet, close) => {
     sheet.innerHTML = `
@@ -763,7 +791,7 @@ export function openQuoteSheet(quoteId) {
       <span class="pill ${statusTone}" style="margin-bottom:14px">${statusLabel}</span>
       ${linkActions(customer)}
       <div class="card">
-        ${detailLine('Service', esc(quote.service))}
+        ${detailLine('Service', quote.service ? esc(quote.service) : 'Not priced yet')}
         ${
           quote.lines && quote.lines.length > 1
             ? quote.lines
@@ -777,7 +805,7 @@ export function openQuoteSheet(quoteId) {
                 : '')
             : ''
         }
-        ${detailLine('Quoted', domain.formatCurrency(quote.amount))}
+        ${lead ? detailLine('Quoted', 'No price given') : detailLine('Quoted', domain.formatCurrency(quote.amount))}
         ${detailLine('Follow up', quote.followUpDate ? domain.relativeDay(quote.followUpDate) : 'No date')}
         ${quote.note ? detailNote(esc(quote.note)) : ''}
       </div>
@@ -790,7 +818,25 @@ export function openQuoteSheet(quoteId) {
 
     const actions = sheet.querySelector('#quote-actions');
 
-    if (open) {
+    if (open && lead) {
+      // A lead has no number on it, so "accepted" needs the price before it
+      // can become a job. One sheet does both rather than forcing an edit
+      // first and an accept second.
+      actions.appendChild(
+        button('btn-primary', 'Book this job', () => {
+          close();
+          openBookLeadSheet(quoteId);
+        })
+      );
+      actions.appendChild(
+        button('btn-secondary', 'Not interested after all', () => {
+          if (window.confirm('Mark this lead declined? It will leave your open list.')) {
+            state.declineQuote(quoteId);
+            close();
+          }
+        }, { marginTop: '10px' })
+      );
+    } else if (open) {
       // First tap reveals the date, second confirms — so a stray tap on
       // "accepted" can't silently put a job on the calendar.
       const when = sheet.querySelector('#won-when');
@@ -855,6 +901,50 @@ export function openQuoteSheet(quoteId) {
         }
       }, { marginTop: '10px' })
     );
+  });
+}
+
+// Turns an interested door into a booked job without re-entering the
+// customer: price it, schedule it, done.
+export function openBookLeadSheet(quoteId) {
+  const quote = state.getQuotes().find((q) => q.id === quoteId);
+  if (!quote) return;
+  const customer = state.getCustomer(quote.customerId);
+  openSheet((sheet, close) => {
+    sheet.innerHTML = `
+      <p class="sheet-title">Book ${esc(customer ? customer.name : 'this job')}</p>
+      <p class="sheet-sub">${esc(
+        customer && customer.address ? customer.address : 'Their details carry over.'
+      )}</p>
+      <div class="field">
+        <label>Service &mdash; tap more than one to price them separately</label>
+        <div class="chip-row" id="bl-services"></div>
+      </div>
+      <div class="field" id="bl-prices"></div>
+      <div class="field">
+        <label>Scheduled for</label>
+        <input type="datetime-local" id="bl-when" value="${nowLocalDateTime()}" />
+      </div>
+      <button class="btn-primary" id="bl-save">Book job</button>
+    `;
+    const getServices = serviceLinesField(
+      sheet,
+      '#bl-services',
+      '#bl-prices',
+      quote.service ? domain.serviceList(quote) : null
+    );
+    sheet.querySelector('#bl-save').addEventListener('click', () => {
+      const picked = getServices();
+      const when = sheet.querySelector('#bl-when').value;
+      // Price the quote first so the job it creates carries the breakdown.
+      state.updateQuote(quoteId, {
+        service: picked.service,
+        amount: picked.amount,
+        lines: picked.lines,
+      });
+      state.acceptQuote(quoteId, when ? new Date(when).toISOString() : null);
+      close();
+    });
   });
 }
 
@@ -981,9 +1071,10 @@ export function openNewJobModal(onDone) {
       </div>
       <div class="field" id="n-prices"></div>
       <div class="field">
-        <label>Scheduled for</label>
-        <input type="datetime-local" id="n-when" value="${nowLocalDateTime()}" />
+        <label>When</label>
+        <div class="chip-row" id="n-mode"></div>
       </div>
+      <div id="n-when-box"></div>
       <div class="field">
         <label>Notes (optional)</label>
         <textarea id="n-note"></textarea>
@@ -992,6 +1083,56 @@ export function openNewJobModal(onDone) {
     `;
     const getServices = serviceLinesField(sheet, '#n-services', '#n-prices');
     const nameInput = sheet.querySelector('#n-name');
+
+    // Work is often entered after it was done. Saying so here is the only way
+    // it lands in the right week — otherwise both dates default to now and
+    // last Thursday's job counts as this week's revenue.
+    let mode = 'scheduled';
+    let getPayment = null;
+    const modeRow = sheet.querySelector('#n-mode');
+    const whenBox = sheet.querySelector('#n-when-box');
+
+    function drawMode() {
+      modeRow.innerHTML = '';
+      [
+        ['scheduled', 'Scheduled'],
+        ['done', 'Already done'],
+      ].forEach(([key, label]) => {
+        const chip = document.createElement('button');
+        chip.type = 'button';
+        chip.className = 'chip' + (mode === key ? ' active' : '');
+        chip.textContent = label;
+        chip.addEventListener('click', () => {
+          mode = key;
+          drawMode();
+        });
+        modeRow.appendChild(chip);
+      });
+
+      if (mode === 'scheduled') {
+        getPayment = null;
+        whenBox.innerHTML = `
+          <div class="field">
+            <label>Scheduled for</label>
+            <input type="datetime-local" id="n-when" value="${nowLocalDateTime()}" />
+          </div>
+        `;
+      } else {
+        whenBox.innerHTML = `
+          <div class="field">
+            <label>Date the work was done</label>
+            <input type="date" id="n-done" value="${todayISO()}" max="${todayISO()}" />
+          </div>
+          <div class="field">
+            <label>Payment</label>
+            <div class="chip-row" id="n-payment"></div>
+          </div>
+        `;
+        getPayment = paymentChoice(whenBox.querySelector('#n-payment'));
+      }
+    }
+    drawMode();
+
     sheet.querySelector('#n-save').addEventListener('click', () => {
       const name = nameInput.value.trim();
       if (!name) {
@@ -999,17 +1140,25 @@ export function openNewJobModal(onDone) {
         return;
       }
       const picked = getServices();
-      const when = sheet.querySelector('#n-when').value;
-      state.createJobDirect({
+      const note = sheet.querySelector('#n-note').value.trim();
+      const base = {
         name,
         phone: sheet.querySelector('#n-phone').value.trim(),
         address: sheet.querySelector('#n-address').value.trim(),
         service: picked.service,
         amount: picked.amount,
         lines: picked.lines,
-        scheduledAt: when ? new Date(when).toISOString() : null,
-        note: sheet.querySelector('#n-note').value.trim(),
-      });
+        note,
+      };
+
+      if (mode === 'done') {
+        const stamp = dateToStamp(sheet.querySelector('#n-done').value);
+        const job = state.createJobDirect({ ...base, scheduledAt: stamp });
+        state.completeJob(job.id, { ...getPayment(), completedAt: stamp });
+      } else {
+        const when = sheet.querySelector('#n-when').value;
+        state.createJobDirect({ ...base, scheduledAt: when ? new Date(when).toISOString() : null });
+      }
       close();
       if (onDone) onDone();
     });
@@ -1019,7 +1168,7 @@ export function openNewJobModal(onDone) {
 // --- Goals -----------------------------------------------------------------
 
 function plusDays(days) {
-  return new Date(Date.now() + days * 86400000).toISOString().slice(0, 10);
+  return daysFromToday(days);
 }
 
 // One form for both editing the running goal and starting the next one.

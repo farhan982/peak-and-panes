@@ -1,4 +1,4 @@
-import { createId } from './storage.js';
+import { createId, localDay } from './storage.js';
 
 const COLLECTIONS = ['territories', 'sessions', 'doors', 'customers', 'quotes', 'jobs'];
 
@@ -74,7 +74,7 @@ export function validateBackup(text) {
 
 export function downloadBackup(state, settings) {
   const backup = buildBackup(state, settings);
-  const stamp = new Date().toISOString().slice(0, 10);
+  const stamp = localDay();
   const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');

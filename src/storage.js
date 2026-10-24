@@ -24,7 +24,7 @@ export function loadState() {
     COLLECTIONS.forEach((k) => {
       if (Array.isArray(parsed[k])) next[k] = parsed[k];
     });
-    return migrateVocabulary(next);
+    return migrateInterestedLeads(migrateVocabulary(next));
   } catch {
     return emptyCollections();
   }
@@ -32,6 +32,32 @@ export function loadState() {
 
 // Quotes were once "won"/"lost". The stored values were renamed to the terms
 // an estimate actually uses, so older records are translated on load.
+// Interested doors used to create only a customer, leaving nothing to follow
+// up or convert. Give each one the pipeline entry it would get today. This is
+// not inventing data — the interest was recorded, it just had nowhere to live.
+function migrateInterestedLeads(state) {
+  state.doors.forEach((door) => {
+    if (door.outcome !== 'interested' || !door.customerId || door.quoteId) return;
+    const already = state.quotes.some((q) => q.customerId === door.customerId);
+    if (already) return;
+    const quote = {
+      id: createId(),
+      customerId: door.customerId,
+      territoryId: door.territoryId || null,
+      service: '',
+      amount: 0,
+      lines: null,
+      followUpDate: null,
+      note: door.note || '',
+      status: 'open',
+      createdAt: door.at || new Date().toISOString(),
+    };
+    state.quotes.push(quote);
+    door.quoteId = quote.id;
+  });
+  return state;
+}
+
 function migrateVocabulary(state) {
   const quoteStatus = { won: 'accepted', lost: 'declined' };
   state.quotes.forEach((q) => {
@@ -66,8 +92,8 @@ export function newGoal({ amount, weeklyTarget, startDate, endDate }) {
   const start = startDate ? new Date(`${startDate}T00:00:00`) : new Date();
   const end = endDate ? new Date(`${endDate}T00:00:00`) : new Date(start.getTime());
   if (!endDate) end.setDate(end.getDate() + 90);
-  const startDay = start.toISOString().slice(0, 10);
-  const today = new Date().toISOString().slice(0, 10);
+  const startDay = localDay(start);
+  const today = localDay();
   return {
     id: createId(),
     amount: amount || 20000,
@@ -126,8 +152,22 @@ export function createId() {
   return Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
 }
 
+// The LOCAL calendar day, not the UTC one. toISOString() rolls over in the
+// evening for anyone west of Greenwich, which put follow-up dates, completion
+// defaults and "overdue" checks a day out exactly when the day's admin gets
+// done.
+export function localDay(value = new Date()) {
+  const d = value instanceof Date ? value : new Date(value);
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
 export function todayISO() {
-  return new Date().toISOString().slice(0, 10);
+  return localDay();
+}
+
+export function daysFromToday(days) {
+  return localDay(new Date(Date.now() + days * 86400000));
 }
 
 // "14:30" for a datetime-local default, in local time rather than UTC.

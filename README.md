@@ -20,8 +20,7 @@ log every door with one tap:
 - Six one-tap outcomes. *No Answer* and *Not Interested* log instantly;
   *Interested*, *Follow Up*, *Quote Given* and *Booked* open a short sheet.
   *Interested* and *Follow Up* differ by who moves next: a follow-up is a date
-  you go back on, an interested door is someone who may ring you, so it has no
-  date field.
+  you go back on, an interested door is someone who may ring you.
 - *Quote Given* creates a customer and an open quote with a follow-up date.
   *Booked* creates a customer and a scheduled job. Both in one tap plus a form.
 - Undo on the most recent door, which also removes anything that tap created —
@@ -92,6 +91,12 @@ this week's revenue against last week's, open quotes, jobs booked (with how
 many are done), doors knocked, today's schedule, a **This week** summary card,
 the doors-to-quotes-to-jobs funnel, and four quick actions.
 
+**Add Job can log work that is already finished** — the When row switches
+between *Scheduled* and *Already done*, and the second asks for the date it was
+done and how it was paid, creating the job complete in one step. Without it,
+back-entering a job put today's date in both the scheduled and completion
+fields, and last Thursday's work counted as this week's revenue.
+
 Weekly revenue is bucketed by **the date the work was done**, not the date it
 was typed in — marking last Tuesday's job complete today must not move this
 week's figure. Completing a job therefore asks for the date, defaulting to the
@@ -126,6 +131,22 @@ quote was declined is `declined` too. Records written under the earlier
 The Dashboard carries a **backup reminder** when there is data at risk and no
 backup in 30 days (or none ever). Dismissing snoozes it for 7 days; downloading
 a backup silences it. A fresh install with no records is never nagged.
+
+### Leads
+
+An *Interested* door creates an **open quote with no price** — a lead. It sits
+in the Open tab with the real quotes, can carry a follow-up date, and converts
+with one tap: **Book this job** asks only for the service and price, then
+creates the job against the customer already on file. Before this, an
+interested door produced only a customer, so saying yes later meant entering
+everything again.
+
+`domain.isLead(quote)` is just "open with no amount". Leads are counted in the
+open list but kept out of the pipeline figure, since they have no number yet,
+and they are skipped by the Services breakdown because a lead has no service
+chosen. `migrateInterestedLeads` in `storage.js` gives the same entry to
+interested doors logged before this existed — the interest was already
+recorded, it just had nowhere to live.
 
 ## Services are components, not bundles
 
@@ -285,6 +306,15 @@ Stamping happens *after* the door is logged, via `state.attachDoorLocation`,
 which writes to storage **without** notifying listeners. That is deliberate: a
 fix landing mid-typing would otherwise re-render and steal focus from the
 address field.
+
+## Dates are local, never UTC
+
+`localDay()` in `storage.js` is the only way a calendar day should be derived
+from a timestamp, and `toLocalDate()` in `domain.js` is the only way a bare
+`YYYY-MM-DD` should be parsed. `toISOString().slice(0, 10)` is wrong here:
+west of Greenwich it rolls over in the evening, which is exactly when a day's
+admin gets done. It had put completion-date defaults, follow-up comparisons
+and "overdue" checks a day out, and made a plain date display a day early.
 
 ## iOS notes
 

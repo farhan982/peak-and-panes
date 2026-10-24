@@ -1,10 +1,11 @@
 import * as state from '../state.js';
 import { icon } from '../icons.js';
+import { todayISO } from '../storage.js';
 
 // Quotes whose follow-up date has arrived. This is the only notification the
 // app has anything real to say about, so it is the only thing the bell counts.
 export function dueFollowUps() {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayISO();
   return state.getQuotes().filter((q) => q.status === 'open' && q.followUpDate && q.followUpDate <= today);
 }
 

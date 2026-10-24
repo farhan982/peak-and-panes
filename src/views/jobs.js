@@ -1,6 +1,7 @@
 import * as state from '../state.js';
 import * as domain from '../domain.js';
 import { icon } from '../icons.js';
+import { todayISO } from '../storage.js';
 import { buildScreen } from './header.js';
 import { esc, openJobSheet, openQuoteSheet } from './modals.js';
 
@@ -18,7 +19,7 @@ export function renderJobs(root) {
     seg: [
       ['upcoming', 'Upcoming'],
       ['completed', 'Completed'],
-      ['quotes', 'Open quotes'],
+      ['quotes', 'Open'],
     ].map(([key, label]) => ({
       label,
       active: tab === key,
@@ -120,24 +121,34 @@ function renderQuotes(page) {
 
   if (!quotes.length) {
     page.appendChild(
-      emptyCard('No open quotes', 'Quotes given at the door show up here with their follow-up date.')
+      emptyCard(
+        'Nothing open',
+        'Quotes given at the door show up here with their follow-up date, along with anyone you marked Interested.'
+      )
     );
     return;
   }
 
+  // Leads carry no price, so they are counted but kept out of the pipeline
+  // figure — otherwise "in play" would quietly understate what is quoted.
+  const leads = quotes.filter((q) => domain.isLead(q));
+  const priced = quotes.filter((q) => !domain.isLead(q));
   page.appendChild(
     summaryCard(
-      domain.plural(quotes.length, 'open quote'),
-      'Pipeline value',
-      quotes.reduce((sum, q) => sum + (q.amount || 0), 0),
+      domain.plural(quotes.length, 'open item'),
+      leads.length
+        ? `${domain.plural(priced.length, 'quote')} · ${domain.plural(leads.length, 'lead')}`
+        : 'Pipeline value',
+      priced.reduce((sum, q) => sum + (q.amount || 0), 0),
       'blue'
     )
   );
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayISO();
   quotes.forEach((quote) => {
     const customer = state.getCustomer(quote.customerId);
     const due = quote.followUpDate && quote.followUpDate <= today;
+    const lead = domain.isLead(quote);
     const row = document.createElement('button');
     row.className = 'row';
     row.addEventListener('click', () => openQuoteSheet(quote.id));
@@ -145,14 +156,16 @@ function renderQuotes(page) {
       <span class="status-dot${due ? '' : ' hollow'}"></span>
       <div class="row-main">
         <p class="row-title">${esc(customer ? customer.name : 'Customer')}</p>
-        <p class="row-sub link">${esc(quote.service)}</p>
+        <p class="row-sub link">${quote.service ? esc(quote.service) : 'Interested — not priced yet'}</p>
         <p class="row-sub">${
           quote.followUpDate ? `Follow up ${domain.relativeDay(quote.followUpDate)}` : 'No follow-up date'
         }</p>
       </div>
       <div class="row-right">
-        <p class="row-amount">${domain.formatCurrency(quote.amount)}</p>
-        <span class="pill ${due ? 'orange' : 'gold'}">${due ? 'Due' : 'Open'}</span>
+        <p class="row-amount">${lead ? '—' : domain.formatCurrency(quote.amount)}</p>
+        <span class="pill ${lead ? 'purple' : due ? 'orange' : 'gold'}">${
+          lead ? 'Lead' : due ? 'Due' : 'Open'
+        }</span>
       </div>
     `;
     page.appendChild(row);

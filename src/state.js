@@ -607,9 +607,11 @@ export function declineQuote(quoteId) {
 // Interested, but nothing to chase on a schedule — they may ring you. The
 // difference from a follow-up is who makes the next move, so there is
 // deliberately no date here.
-export function logInterested({ sessionId, territoryId, address, name, note }) {
+export function logInterested({ sessionId, territoryId, address, name, followUpDate, note }) {
   let customerId = null;
   let createdCustomer = false;
+  let quoteId = null;
+
   if (name) {
     const customer = addCustomer({
       name,
@@ -620,7 +622,26 @@ export function logInterested({ sessionId, territoryId, address, name, note }) {
     });
     customerId = customer.id;
     createdCustomer = true;
+
+    // An interested door is a pipeline entry with no price on it yet. Making
+    // it a quote means it can be followed up and booked in one step later,
+    // instead of being re-entered from scratch when they say yes.
+    const quote = {
+      id: createId(),
+      customerId: customer.id,
+      territoryId,
+      service: '',
+      amount: 0,
+      lines: null,
+      followUpDate: followUpDate || null,
+      note: note || '',
+      status: 'open',
+      createdAt: new Date().toISOString(),
+    };
+    state.quotes.push(quote);
+    quoteId = quote.id;
   }
+
   return logDoor({
     sessionId,
     territoryId,
@@ -629,6 +650,7 @@ export function logInterested({ sessionId, territoryId, address, name, note }) {
     note: note || '',
     customerId,
     createdCustomer,
+    quoteId,
   });
 }
 

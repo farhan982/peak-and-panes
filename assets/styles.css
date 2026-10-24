@@ -1784,3 +1784,51 @@ button.terr-row {
   border-color: var(--blue);
   background: #fff;
 }
+
+/* --- Search --------------------------------------------------------------- */
+
+.search-wrap {
+  margin-bottom: 12px;
+}
+
+.search-input {
+  width: 100%;
+  font-size: 16px;
+  font-family: inherit;
+  padding: 12px 14px;
+  border-radius: var(--radius-sm);
+  background: var(--card);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow);
+  color: var(--ink);
+  appearance: none;
+}
+
+.search-input::placeholder {
+  color: var(--dim);
+}
+
+.search-input:focus {
+  outline: none;
+  border-color: var(--blue);
+}
+
+.search-empty {
+  margin: 18px 0;
+  text-align: center;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+/* --- Due again ------------------------------------------------------------ */
+
+.due-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  background: var(--gold-soft);
+  border-left: 4px solid var(--gold-bright);
+  border-radius: var(--radius);
+  padding: 12px 10px 12px 14px;
+  margin-bottom: 14px;
+}

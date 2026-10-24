@@ -521,6 +521,84 @@ export function cumulativeSeries(allJobs, goalRecord, now = new Date()) {
 }
 
 // ---------------------------------------------------------------------------
+// Repeat work
+// ---------------------------------------------------------------------------
+
+// How long before a service is worth offering again. These are judgement
+// calls about this business, not facts — windows twice a year, eaves before
+// each autumn, painting rarely. An odd job has no natural repeat at all.
+export const REPEAT_MONTHS = {
+  'Exterior Windows': 6,
+  'Interior Windows': 12,
+  Eaves: 12,
+  Painting: 36,
+  'Odd Job': null,
+};
+
+const DEFAULT_REPEAT_MONTHS = 12;
+
+export function repeatInterval(service) {
+  if (Object.prototype.hasOwnProperty.call(REPEAT_MONTHS, service)) return REPEAT_MONTHS[service];
+  return DEFAULT_REPEAT_MONTHS;
+}
+
+export function monthsSince(iso, now = new Date()) {
+  const then = toLocalDate(iso);
+  let months = (now.getFullYear() - then.getFullYear()) * 12 + (now.getMonth() - then.getMonth());
+  if (now.getDate() < then.getDate()) months -= 1;
+  return Math.max(0, months);
+}
+
+// Work you have already done once, old enough to be worth offering again.
+// Costs nothing to find — it is derived entirely from completed jobs — and a
+// past customer is a far cheaper lead than a door.
+export function repeatDue(s, now = new Date()) {
+  const today = localDay(now);
+  const last = new Map();
+
+  s.jobs.forEach((job) => {
+    if (job.status !== 'completed' || !job.completedAt || !job.customerId) return;
+    serviceList(job).forEach((line) => {
+      const key = `${job.customerId}::${line.service}`;
+      const seen = last.get(key);
+      if (!seen || job.completedAt > seen.completedAt) {
+        last.set(key, { customerId: job.customerId, service: line.service, completedAt: job.completedAt });
+      }
+    });
+  });
+
+  const out = [];
+  last.forEach((entry) => {
+    const interval = repeatInterval(entry.service);
+    if (!interval) return;
+    const customer = s.customers.find((c) => c.id === entry.customerId);
+    if (!customer) return;
+    if (customer.repeatSnoozedUntil && customer.repeatSnoozedUntil > today) return;
+    // Already back on the books for that service — nothing to chase.
+    const openAgain = s.jobs.some(
+      (j) =>
+        j.customerId === customer.id &&
+        j.status !== 'completed' &&
+        serviceList(j).some((l) => l.service === entry.service)
+    );
+    if (openAgain) return;
+
+    const months = monthsSince(entry.completedAt, now);
+    if (months < interval) return;
+    out.push({
+      customer,
+      service: entry.service,
+      lastDone: entry.completedAt,
+      months,
+      interval,
+      overdueBy: months - interval,
+    });
+  });
+
+  return out.sort((a, b) => b.overdueBy - a.overdueBy || b.months - a.months);
+}
+
+// ---------------------------------------------------------------------------
 // Backup reminder
 // ---------------------------------------------------------------------------
 
@@ -660,6 +738,14 @@ export function funnel(doors) {
 
 // Deliberately few, concrete, and each one derived from something the app can
 // actually see. Ordered by how much money is sitting behind them.
+// Recommendation text is injected as HTML, so a customer name has to be safe.
+function esc0(value) {
+  return String(value == null ? '' : value).replace(
+    /[&<>"']/g,
+    (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])
+  );
+}
+
 export function recommendations(s, settings, now = new Date()) {
   const out = [];
   const today = localDay(now);
@@ -702,6 +788,17 @@ export function recommendations(s, settings, now = new Date()) {
         'job'
       )} done, ${formatCurrency(best.stats.collected)} in`,
       hash: '#/canvassing',
+    });
+  }
+
+  const dueAgain = repeatDue(s, now);
+  if (dueAgain.length) {
+    out.push({
+      icon: 'people',
+      text: `${plural(dueAgain.length, 'past customer')} due for work again — ${esc0(
+        dueAgain[0].customer.name
+      )} first`,
+      hash: '#/customers',
     });
   }
 

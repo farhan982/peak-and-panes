@@ -132,6 +132,31 @@ The Dashboard carries a **backup reminder** when there is data at risk and no
 backup in 30 days (or none ever). Dismissing snoozes it for 7 days; downloading
 a backup silences it. A fresh install with no records is never nagged.
 
+### Repeat work
+
+`domain.repeatDue(s)` finds past customers whose work is old enough to offer
+again, derived entirely from completed jobs — no extra data entry, and a past
+customer is a far cheaper lead than a door. `REPEAT_MONTHS` holds the
+intervals (windows 6, interior and eaves 12, painting 36, odd jobs never);
+those are **judgement calls about this business, not facts**, so change them
+freely.
+
+A multi-service job counts once per service, each against its own interval.
+Anyone already re-booked for that service drops off automatically, since the
+reminder is derived from the last *completed* job. `snoozeRepeat` quietens one
+for three months without pretending the work was done.
+
+It surfaces as a **Due again** card at the top of Customers, a banner on the
+customer's own sheet, and a line in the Goal screen's recommendations.
+
+### Search
+
+`attachSearch` filters **in the DOM** rather than by re-rendering. A re-render
+would replace the input on every keystroke and lose focus and the caret; the
+usual fix is to restore both afterwards, but not needing to is simpler and
+does not fight the keyboard on a phone. Each row carries the text it matches
+against. On Customers and on all three Jobs tabs.
+
 ### Leads
 
 An *Interested* door creates an **open quote with no price** — a lead. It sits

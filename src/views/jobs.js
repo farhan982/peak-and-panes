@@ -4,6 +4,7 @@ import { icon } from '../icons.js';
 import { todayISO } from '../storage.js';
 import { buildScreen } from './header.js';
 import { esc, openJobSheet, openQuoteSheet } from './modals.js';
+import { attachSearch } from './search.js';
 
 // Filter survives the app-wide re-render, same reason as the canvassing state.
 let tab = 'upcoming';
@@ -88,6 +89,7 @@ function renderJobList(page, which) {
     );
   }
 
+  const searchable = [];
   jobs.forEach((job) => {
     const customer = state.getCustomer(job.customerId);
     const done = job.status === 'completed';
@@ -110,6 +112,16 @@ function renderJobList(page, which) {
       </div>
     `;
     page.appendChild(row);
+    searchable.push({
+      el: row,
+      text: [customer && customer.name, customer && customer.address, job.service].filter(Boolean).join(' '),
+    });
+  });
+
+  attachSearch(page, {
+    placeholder: 'Search name, address or service',
+    rows: searchable,
+    emptyText: 'No job matches that.',
   });
 }
 
@@ -145,6 +157,7 @@ function renderQuotes(page) {
   );
 
   const today = todayISO();
+  const searchable = [];
   quotes.forEach((quote) => {
     const customer = state.getCustomer(quote.customerId);
     const due = quote.followUpDate && quote.followUpDate <= today;
@@ -169,6 +182,18 @@ function renderQuotes(page) {
       </div>
     `;
     page.appendChild(row);
+    searchable.push({
+      el: row,
+      text: [customer && customer.name, customer && customer.address, quote.service, lead ? 'lead' : '']
+        .filter(Boolean)
+        .join(' '),
+    });
+  });
+
+  attachSearch(page, {
+    placeholder: 'Search name, address or service',
+    rows: searchable,
+    emptyText: 'Nothing matches that.',
   });
 }
 

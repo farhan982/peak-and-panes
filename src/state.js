@@ -7,6 +7,7 @@ import {
   saveSettings,
   clearAllData,
   newGoal,
+  localDay,
 } from './storage.js';
 import { activeSession as findActiveSession, activeGoal, goalProgress } from './domain.js';
 
@@ -301,6 +302,18 @@ export function updateCustomer(customerId, fields) {
   const customer = getCustomer(customerId);
   if (!customer) return;
   Object.assign(customer, fields);
+  notify();
+}
+
+// Quietens a repeat reminder for a while without pretending the work was
+// done. Booking them again clears it naturally, because the reminder is
+// derived from the last completed job.
+export function snoozeRepeat(customerId, months) {
+  const customer = getCustomer(customerId);
+  if (!customer) return;
+  const until = new Date();
+  until.setMonth(until.getMonth() + (months || 3));
+  customer.repeatSnoozedUntil = localDay(until);
   notify();
 }
 

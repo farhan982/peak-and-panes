@@ -1251,10 +1251,24 @@ export function openCustomerSheet(customerId) {
   const [label, tone] = domain.customerStageLabel(state.getState(), customer);
 
   openSheet((sheet, close) => {
+    const due = domain.repeatDue(state.getState()).filter((d) => d.customer.id === customerId);
     sheet.innerHTML = `
       <p class="sheet-title">${esc(customer.name)}</p>
       <p class="sheet-sub">${esc(customer.address || 'No address on file')}</p>
       <span class="pill ${tone}" style="margin-bottom:14px">${label}</span>
+      ${
+        due.length
+          ? `<div class="due-banner">
+              <div class="row-main">
+                <p class="reminder-title">Due again</p>
+                <p class="reminder-body">${due
+                  .map((d) => `${esc(d.service)} — ${domain.plural(d.months, 'month')} ago`)
+                  .join('<br>')}</p>
+              </div>
+              <button class="reminder-dismiss" id="cust-snooze" aria-label="Remind me in three months">&times;</button>
+            </div>`
+          : ''
+      }
       ${linkActions(customer)}
       <div class="card">
         ${detailLine('Collected', domain.formatCurrency(summary.collected))}
@@ -1322,6 +1336,14 @@ export function openCustomerSheet(customerId) {
         card.appendChild(row);
       });
       sheet.querySelector('#cust-history').appendChild(card);
+    }
+
+    const snooze = sheet.querySelector('#cust-snooze');
+    if (snooze) {
+      snooze.addEventListener('click', () => {
+        state.snoozeRepeat(customerId, 3);
+        close();
+      });
     }
 
     sheet.querySelector('#cust-edit').addEventListener('click', () => {

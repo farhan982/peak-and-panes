@@ -236,6 +236,20 @@ export function normaliseStreet(street) {
     .trim();
 }
 
+// "90 Glenthorne Drive", "90 glenthorne dr." and "90  Glenthorne Dr" are all
+// the same house. Reuses the street-suffix table above.
+export function normaliseAddress(address) {
+  if (!address) return '';
+  return String(address)
+    .toLowerCase()
+    .replace(/[.,#]/g, ' ')
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((word) => SUFFIXES[word] || word)
+    .join(' ')
+    .trim();
+}
+
 export function sameStreet(a, b) {
   const left = normaliseStreet(a);
   const right = normaliseStreet(b);

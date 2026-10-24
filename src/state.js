@@ -10,6 +10,7 @@ import {
   localDay,
 } from './storage.js';
 import { activeSession as findActiveSession, activeGoal, goalProgress } from './domain.js';
+import { normaliseAddress, normaliseStreet } from './geo.js';
 
 let state = loadState();
 let settings = loadSettings();
@@ -130,7 +131,24 @@ export function getTerritory(id) {
   return state.territories.find((t) => t.id === id) || null;
 }
 
+export function findTerritoryByName(name) {
+  const key = normaliseStreet(name);
+  if (!key) return null;
+  return state.territories.find((t) => normaliseStreet(t.name) === key) || null;
+}
+
 export function createTerritory(name, area, doorTarget, origin) {
+  // Creating "Centennial" twice should give you the one you already work,
+  // not a second copy that splits its history in half.
+  const existing = findTerritoryByName(name);
+  if (existing) {
+    if (!existing.area && area) existing.area = area;
+    if (!existing.doorTarget && doorTarget) existing.doorTarget = doorTarget;
+    if (!existing.origin && origin) existing.origin = origin;
+    notify();
+    return existing;
+  }
+
   const territory = {
     id: createId(),
     name,
@@ -280,7 +298,38 @@ export function getCustomer(id) {
   return state.customers.find((c) => c.id === id) || null;
 }
 
+export function findCustomerByAddress(address) {
+  const key = normaliseAddress(address);
+  if (!key) return null;
+  return state.customers.find((c) => normaliseAddress(c.address) === key) || null;
+}
+
+// Every door flow used to create a customer outright, so quoting a house and
+// later booking it produced two of the same person. The address is the
+// identity here: one name can live at two addresses, but one address is one
+// household. Without an address there is nothing safe to match on, so a new
+// record is the honest answer.
 function addCustomer(fields) {
+  const existing = findCustomerByAddress(fields.address);
+  if (existing) {
+    // Fill in anything that was blank before, but never overwrite what is
+    // already there — the earlier record was entered with the customer in
+    // front of you.
+    ['phone', 'email', 'territoryId'].forEach((key) => {
+      if (!existing[key] && fields[key]) existing[key] = fields[key];
+    });
+    if (fields.status) existing.status = fields.status;
+    if (fields.note && !String(existing.note || '').includes(fields.note)) {
+      existing.note = [existing.note, fields.note].filter(Boolean).join(' · ');
+    }
+    // A different name at the same address is kept rather than discarded.
+    const incoming = String(fields.name || '').trim();
+    if (incoming && incoming.toLowerCase() !== String(existing.name || '').trim().toLowerCase()) {
+      existing.note = [existing.note, `Also given as ${incoming}`].filter(Boolean).join(' · ');
+    }
+    return existing;
+  }
+
   const customer = {
     id: createId(),
     name: '',

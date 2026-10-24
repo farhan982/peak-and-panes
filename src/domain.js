@@ -530,7 +530,7 @@ export function cumulativeSeries(allJobs, goalRecord, now = new Date()) {
 export const REPEAT_MONTHS = {
   'Exterior Windows': 6,
   'Interior Windows': 12,
-  Eaves: 12,
+  Eaves: 6, // spring and autumn
   Painting: 36,
   'Odd Job': null,
 };

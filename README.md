@@ -137,7 +137,8 @@ a backup silences it. A fresh install with no records is never nagged.
 `domain.repeatDue(s)` finds past customers whose work is old enough to offer
 again, derived entirely from completed jobs — no extra data entry, and a past
 customer is a far cheaper lead than a door. `REPEAT_MONTHS` holds the
-intervals (windows 6, interior and eaves 12, painting 36, odd jobs never);
+intervals (exterior windows and eaves 6 — spring and autumn — interior windows
+12, painting 36, odd jobs never);
 those are **judgement calls about this business, not facts**, so change them
 freely.
 
@@ -331,6 +332,27 @@ Stamping happens *after* the door is logged, via `state.attachDoorLocation`,
 which writes to storage **without** notifying listeners. That is deliberate: a
 fix landing mid-typing would otherwise re-render and steal focus from the
 address field.
+
+## One address is one customer
+
+Every door flow used to create a customer outright, so quoting a house and
+later booking it left two of the same person — and the same for territories
+created twice under one name. Records are now looked up before being created:
+**customers by normalised address, territories by normalised name**
+(`normaliseAddress` / `normaliseStreet` in `geo.js`, which fold "Drive"/"Dr"
+and spacing together).
+
+Address rather than name is deliberate: one name can live at two addresses,
+but one address is one household. With **no address there is nothing safe to
+match on**, so a new record is the honest answer — a phone lead with no
+address will not be merged into anything.
+
+Reuse never overwrites. Blank fields are filled from the newer entry, and a
+different name at the same address is appended to the note as "Also given as
+…" rather than discarded. `mergeDuplicateCustomers` and
+`mergeDuplicateTerritories` in `storage.js` apply the same rules to duplicates
+already in the data, repointing every quote, job, door and session at the
+surviving record. Both are idempotent.
 
 ## Dates are local, never UTC
 

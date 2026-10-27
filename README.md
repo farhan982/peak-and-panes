@@ -110,8 +110,13 @@ quotes, booked, finished, collected, plus average job, best territory and best
 service. Note "Finished" (work completed this week) is a different question
 from the tile's "3 of 6 done" (how many of this week's bookings are complete).
 
-**Services** (`#/services`, reached from the Goal screen) breaks every job and
-quote down by the kind of work: jobs completed, revenue collected, average job
+**Services** (`#/services`, reached from the Goal screen) lists the services
+**in the order they are offered**, not by how they are performing, so the same
+service is in the same place every visit and the numbers can be compared at a
+glance. Retired names from older records fall in after them. The Goal screen's
+"leads with" line uses `leadingService()` rather than the first row, since the
+list is no longer ranked. It breaks every job and quote down by the kind of
+work: jobs completed, revenue collected, average job
 value, and how many quotes for that service were accepted. All time.
 
 **What it takes** turns the money still owed into the work that would produce

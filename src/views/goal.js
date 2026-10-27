@@ -248,8 +248,7 @@ function buildTerritoryTable(s) {
 }
 
 function buildServicesLink(s) {
-  const rows = domain.serviceBreakdown(s);
-  const top = rows[0];
+  const top = domain.leadingService(s);
   const card = document.createElement('button');
   card.className = 'card interactive link-card';
   card.innerHTML = `

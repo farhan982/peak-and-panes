@@ -724,13 +724,33 @@ export function serviceBreakdown(s) {
     });
   });
 
+  // Listed in the order the services are offered, not by how they are doing:
+  // a fixed order means the same service is in the same place every time you
+  // look, so the numbers can be compared at a glance between visits.
+  // Retired names from older records fall in after them.
+  const rank = (name) => {
+    const i = SERVICES.indexOf(name);
+    return i === -1 ? SERVICES.length : i;
+  };
   return [...map.values()]
     .map((e) => ({
       ...e,
       average: e.jobs ? e.booked / e.jobs : 0,
       closeRate: e.quotes ? e.accepted / e.quotes : null,
     }))
-    .sort((a, b) => b.completed - a.completed || b.collected - a.collected);
+    .sort((a, b) => rank(a.service) - rank(b.service) || b.collected - a.collected);
+}
+
+// The strongest service, by finished work then by money. Computed rather than
+// read off the top of the list, because the list is in a fixed order.
+export function leadingService(s) {
+  return serviceBreakdown(s).reduce(
+    (best, row) =>
+      !best || row.completed > best.completed || (row.completed === best.completed && row.collected > best.collected)
+        ? row
+        : best,
+    null
+  );
 }
 
 // ---------------------------------------------------------------------------

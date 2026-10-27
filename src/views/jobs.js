@@ -5,23 +5,27 @@ import { todayISO } from '../storage.js';
 import { buildScreen } from './header.js';
 import { esc, openJobSheet, openQuoteSheet } from './modals.js';
 import { attachSearch } from './search.js';
-import { setMapFilter } from './map.js';
+import { setMapFilter, buildMapPanel, filterPoints } from './map.js';
 
 // Filter survives the app-wide re-render, same reason as the canvassing state.
 let tab = 'upcoming';
+// The inline map is a glance, not the main event, so it can be folded away
+// when you just want to work the list.
+let showMap = true;
 
 export function setJobsTab(next) {
   tab = next;
 }
 
+const TAB_FILTER = { upcoming: 'booked', completed: 'completed', quotes: 'open' };
+
 export function renderJobs(root) {
   const mapBtn = document.createElement('button');
   mapBtn.className = 'band-action';
-  mapBtn.textContent = 'Map';
+  mapBtn.textContent = showMap ? 'Hide map' : 'Show map';
   mapBtn.addEventListener('click', () => {
-    // Open the map already showing whatever this tab is showing.
-    setMapFilter(tab === 'quotes' ? 'open' : tab === 'completed' ? 'completed' : 'booked');
-    location.hash = '#/map';
+    showMap = !showMap;
+    state.refresh();
   });
 
   const page = buildScreen(root, {
@@ -41,6 +45,23 @@ export function renderJobs(root) {
       },
     })),
   });
+
+  // The map sits between the tabs and the list, showing exactly what the tab
+  // below it is showing.
+  if (showMap) {
+    const points = filterPoints(domain.mapPoints(state.getState()), TAB_FILTER[tab]);
+    if (points.length) {
+      const full = document.createElement('button');
+      full.className = 'map-full-link';
+      full.textContent = 'Full map ›';
+      full.addEventListener('click', () => {
+        setMapFilter('all');
+        location.hash = '#/map';
+      });
+      // Short enough that the list it belongs to is still on screen under it.
+      page.appendChild(buildMapPanel(points, { height: '210px', extra: full }));
+    }
+  }
 
   if (tab === 'quotes') {
     renderQuotes(page);

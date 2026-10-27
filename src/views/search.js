@@ -29,7 +29,11 @@ export function attachSearch(page, { placeholder, rows, emptyText }) {
     empty.hidden = Boolean(shown) || !query;
   });
 
-  // The search box belongs above the list it filters.
-  page.insertBefore(wrap, page.firstChild);
+  // Directly above the list it filters — which is below the map panel when
+  // one is on screen, since searching narrows the list rather than the map.
+  const mapPanel = page.querySelector('.map-panel');
+  if (mapPanel && mapPanel.nextSibling) page.insertBefore(wrap, mapPanel.nextSibling);
+  else if (mapPanel) page.appendChild(wrap);
+  else page.insertBefore(wrap, page.firstChild);
   page.appendChild(empty);
 }

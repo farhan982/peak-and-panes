@@ -7,7 +7,7 @@ import { renderSettings } from './views/settings.js';
 import { renderDashboard } from './views/dashboard.js';
 import { renderGoal } from './views/goal.js';
 import { renderServices } from './views/services.js';
-import { renderMap } from './views/map.js';
+import { renderMap, destroyMaps } from './views/map.js';
 import { buildBottomNav } from './views/nav.js';
 
 const root = document.getElementById('app');
@@ -33,6 +33,9 @@ function render() {
   // The canvassing timer holds an interval over an element that is about to be
   // thrown away; canvassing restarts it if it is still the active screen.
   stopTimer();
+  // Leaflet holds window listeners until told otherwise, and the root is
+  // about to be emptied underneath any map on screen.
+  destroyMaps();
 
   const route = currentRoute();
   root.innerHTML = '';

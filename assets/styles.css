@@ -1910,3 +1910,10 @@ button.terr-row {
 .leaflet-control {
   z-index: 1 !important;
 }
+
+.map-full-link {
+  margin-left: auto;
+  color: var(--blue);
+  font-size: 12.5px;
+  font-weight: 700;
+}

@@ -134,11 +134,22 @@ a backup silences it. A fresh install with no records is never nagged.
 
 ### Map
 
-`#/map` plots every open quote and job on a real map, filtered by **All /
-Open / Booked / Completed**, with pins coloured to match the pills elsewhere:
-gold open quote, purple lead, blue booked, green completed. The **Map** button
-on Jobs opens it already filtered to whichever tab you were looking at. Tapping
-a pin opens that record.
+The map sits **inline on the Jobs screen, between the tabs and the list**, and
+shows exactly what the tab below it shows — Upcoming plots booked work, Open
+plots open quotes and leads, Completed plots finished jobs. **Hide map** in the
+band folds it away, and the choice sticks while you move between tabs. **Full
+map ›** on the legend opens `#/map`, the full-height version with All / Open /
+Booked / Completed filters and every pin at once.
+
+Pins are coloured to match the pills elsewhere: gold open quote, purple lead,
+blue booked, green completed. Tapping a pin opens that record.
+
+`buildMapPanel` is shared by both — the only difference is height (210px
+inline, 58vh full screen). Searching narrows the list, not the map, so the
+search box sits directly above the list and below the map panel.
+`destroyMaps()` is called from `app.js` on every render alongside `stopTimer()`,
+because the root is cleared underneath any live map and Leaflet holds window
+listeners until told otherwise.
 
 **Leaflet is vendored** into `assets/vendor/` rather than pulled from a CDN, so
 the app stays self-contained and the service worker can cache it. It is 147KB,

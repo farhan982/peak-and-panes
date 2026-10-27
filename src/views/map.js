@@ -14,11 +14,25 @@ const FILTERS = [
 // Module scope so the filter survives the app-wide re-render, same as the
 // Jobs tabs.
 let filter = 'all';
-let mapInstance = null;
 let leafletPromise = null;
+
+// Every live map, so the app can tear them down before the root is cleared.
+// Leaflet keeps window listeners until it is told to let go.
+const instances = [];
 
 export function setMapFilter(next) {
   filter = next;
+}
+
+export function destroyMaps() {
+  while (instances.length) {
+    const map = instances.pop();
+    try {
+      map.remove();
+    } catch {
+      /* already gone */
+    }
+  }
 }
 
 // Leaflet is vendored rather than pulled from a CDN, and loaded only when the
@@ -40,20 +54,38 @@ function loadLeaflet() {
   return leafletPromise;
 }
 
-function matches(point) {
-  if (filter === 'all') return true;
-  if (filter === 'open') return point.status === 'open' || point.status === 'lead';
-  return point.status === filter;
+export function filterPoints(points, which) {
+  if (which === 'all') return points;
+  if (which === 'open') return points.filter((p) => p.status === 'open' || p.status === 'lead');
+  return points.filter((p) => p.status === which);
+}
+
+// One panel, used both inline under the Jobs tabs and as the full screen.
+// `height` is the only thing that differs.
+export function buildMapPanel(points, { height, extra } = {}) {
+  const wrap = document.createElement('div');
+  wrap.className = 'map-panel';
+
+  const card = document.createElement('div');
+  card.className = 'card flush';
+  const holder = document.createElement('div');
+  holder.className = 'map-holder';
+  // min-height in the stylesheet would otherwise override a shorter inline
+  // panel, so both are set together.
+  if (height) {
+    holder.style.height = height;
+    holder.style.minHeight = height;
+  }
+  holder.innerHTML = '<p class="map-loading">Loading map…</p>';
+  card.appendChild(holder);
+  wrap.appendChild(card);
+  wrap.appendChild(buildLegend(points, extra));
+
+  draw(holder, points, state.getState());
+  return wrap;
 }
 
 export function renderMap(root) {
-  // A previous instance is attached to a container that is about to be thrown
-  // away; Leaflet keeps listeners on the window until it is told otherwise.
-  if (mapInstance) {
-    mapInstance.remove();
-    mapInstance = null;
-  }
-
   const s = state.getState();
   const page = buildScreen(root, {
     title: 'Map',
@@ -69,7 +101,7 @@ export function renderMap(root) {
   });
 
   const all = domain.mapPoints(s);
-  const points = all.filter(matches);
+  const points = filterPoints(all, filter);
 
   if (!all.length) {
     page.appendChild(
@@ -82,16 +114,7 @@ export function renderMap(root) {
     return;
   }
 
-  const card = document.createElement('div');
-  card.className = 'card flush';
-  const holder = document.createElement('div');
-  holder.className = 'map-holder';
-  holder.innerHTML = '<p class="map-loading">Loading map…</p>';
-  card.appendChild(holder);
-  page.appendChild(card);
-  page.appendChild(buildLegend(points));
-
-  draw(holder, points, s);
+  page.appendChild(buildMapPanel(points, { height: '58vh' }));
 }
 
 async function draw(holder, points, s) {
@@ -119,15 +142,19 @@ async function draw(holder, points, s) {
     return;
   }
 
+  // The screen may have been re-rendered while Leaflet was loading.
+  if (!holder.isConnected) return;
+
   holder.innerHTML = '';
   const centre = located[0] ? located[0].fix : domain.workingCentre(s) || { lat: 43.77, lng: -79.25 };
-  mapInstance = L.map(holder, { attributionControl: true }).setView([centre.lat, centre.lng], 14);
+  const map = L.map(holder, { attributionControl: true }).setView([centre.lat, centre.lng], 14);
+  instances.push(map);
   L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
     maxZoom: 19,
     attribution: '&copy; OpenStreetMap',
-  }).addTo(mapInstance);
+  }).addTo(map);
 
-  const layer = L.layerGroup().addTo(mapInstance);
+  const layer = L.layerGroup().addTo(map);
   const plot = (list) => {
     layer.clearLayers();
     list.forEach((point) => {
@@ -152,7 +179,7 @@ async function draw(holder, points, s) {
         });
     });
     if (list.length > 1) {
-      mapInstance.fitBounds(list.map((p) => [p.fix.lat, p.fix.lng]), { padding: [30, 30], maxZoom: 16 });
+      map.fitBounds(list.map((p) => [p.fix.lat, p.fix.lng]), { padding: [30, 30], maxZoom: 16 });
     }
   };
   plot(located);
@@ -164,7 +191,7 @@ async function draw(holder, points, s) {
     for (const point of pending) {
       // eslint-disable-next-line no-await-in-loop -- the lookups are queued anyway
       const fix = await geo.geocodeAddress(point.address, near);
-      if (!mapInstance) return; // navigated away mid-lookup
+      if (!holder.isConnected) return; // navigated away mid-lookup
       if (fix) {
         located.push({ ...point, fix });
         plot(located);
@@ -185,7 +212,7 @@ function popupHtml(point) {
   `;
 }
 
-function buildLegend(points) {
+function buildLegend(points, extra) {
   const counts = {};
   points.forEach((p) => {
     counts[p.status] = (counts[p.status] || 0) + 1;
@@ -199,6 +226,7 @@ function buildLegend(points) {
         `<span><i class="map-dot" style="background:${colour}"></i>${label} · ${counts[key]}</span>`
     )
     .join('');
+  if (extra) legend.appendChild(extra);
   return legend;
 }
 

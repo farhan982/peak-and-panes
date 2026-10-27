@@ -5,6 +5,7 @@ import { todayISO } from '../storage.js';
 import { buildScreen } from './header.js';
 import { esc, openJobSheet, openQuoteSheet } from './modals.js';
 import { attachSearch } from './search.js';
+import { setMapFilter } from './map.js';
 
 // Filter survives the app-wide re-render, same reason as the canvassing state.
 let tab = 'upcoming';
@@ -14,9 +15,19 @@ export function setJobsTab(next) {
 }
 
 export function renderJobs(root) {
+  const mapBtn = document.createElement('button');
+  mapBtn.className = 'band-action';
+  mapBtn.textContent = 'Map';
+  mapBtn.addEventListener('click', () => {
+    // Open the map already showing whatever this tab is showing.
+    setMapFilter(tab === 'quotes' ? 'open' : tab === 'completed' ? 'completed' : 'booked');
+    location.hash = '#/map';
+  });
+
   const page = buildScreen(root, {
     title: 'Jobs',
     subtitle: 'Everything booked at the door lands here.',
+    right: mapBtn,
     seg: [
       ['upcoming', 'Upcoming'],
       ['completed', 'Completed'],

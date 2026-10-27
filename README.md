@@ -132,7 +132,28 @@ The Dashboard carries a **backup reminder** when there is data at risk and no
 backup in 30 days (or none ever). Dismissing snoozes it for 7 days; downloading
 a backup silences it. A fresh install with no records is never nagged.
 
-### Repeat work
+### Map
+
+`#/map` plots every open quote and job on a real map, filtered by **All /
+Open / Booked / Completed**, with pins coloured to match the pills elsewhere:
+gold open quote, purple lead, blue booked, green completed. The **Map** button
+on Jobs opens it already filtered to whichever tab you were looking at. Tapping
+a pin opens that record.
+
+**Leaflet is vendored** into `assets/vendor/` rather than pulled from a CDN, so
+the app stays self-contained and the service worker can cache it. It is 147KB,
+so it is loaded **on demand** the first time the map opens, not at startup.
+Pins are `circleMarker` (pure SVG), which avoids Leaflet's marker image files
+entirely.
+
+Positions come from the door that produced the record. Work booked by phone
+never had a fix, so `geo.geocodeAddress` looks the address up — biased towards
+`domain.workingCentre`, the middle of where you already canvass, so a bare
+street name resolves to your neighbourhood rather than one in another country.
+Misses are cached too, so a bad address is not retried forever. Tiles need a
+connection; everything else degrades to a message rather than a blank box.
+
+## Repeat work
 
 `domain.repeatDue(s)` finds past customers whose work is old enough to offer
 again, derived entirely from completed jobs — no extra data entry, and a past

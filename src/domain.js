@@ -521,6 +521,73 @@ export function cumulativeSeries(allJobs, goalRecord, now = new Date()) {
 }
 
 // ---------------------------------------------------------------------------
+// Map
+// ---------------------------------------------------------------------------
+
+export const MAP_STATUSES = {
+  open: ['Open quote', '#c8971d'],
+  lead: ['Lead', '#6d5bd0'],
+  booked: ['Booked', '#1f5fd0'],
+  completed: ['Completed', '#16a34a'],
+};
+
+// Everything worth a pin, with whatever position is already known. A record
+// that came from a door carries that door's fix; anything else has only an
+// address, and the map geocodes those itself.
+export function mapPoints(s) {
+  const points = [];
+  const doorFix = (field, id) => {
+    const door = s.doors.find((x) => x[field] === id && typeof x.lat === 'number');
+    return door ? { lat: door.lat, lng: door.lng } : null;
+  };
+
+  s.quotes.forEach((quote) => {
+    if (quote.status !== 'open') return;
+    const customer = s.customers.find((c) => c.id === quote.customerId);
+    points.push({
+      id: quote.id,
+      kind: 'quote',
+      status: isLead(quote) ? 'lead' : 'open',
+      name: customer ? customer.name : 'Customer',
+      address: customer ? customer.address : '',
+      service: quote.service,
+      amount: quote.amount,
+      when: quote.followUpDate,
+      fix: doorFix('quoteId', quote.id),
+    });
+  });
+
+  s.jobs.forEach((job) => {
+    const customer = s.customers.find((c) => c.id === job.customerId);
+    points.push({
+      id: job.id,
+      kind: 'job',
+      status: job.status === 'completed' ? 'completed' : 'booked',
+      name: customer ? customer.name : 'Customer',
+      address: customer ? customer.address : '',
+      service: job.service,
+      amount: job.amount,
+      when: job.status === 'completed' ? job.completedAt : job.scheduledAt,
+      fix: doorFix('jobId', job.id),
+    });
+  });
+
+  return points;
+}
+
+// The middle of where you already work, used to bias address lookups.
+export function workingCentre(s) {
+  const fixes = s.doors
+    .filter((d) => typeof d.lat === 'number')
+    .map((d) => ({ lat: d.lat, lng: d.lng }));
+  if (!fixes.length) return null;
+  return {
+    lat: fixes.reduce((sum, f) => sum + f.lat, 0) / fixes.length,
+    lng: fixes.reduce((sum, f) => sum + f.lng, 0) / fixes.length,
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Repeat work
 // ---------------------------------------------------------------------------
 

@@ -162,6 +162,62 @@ export function resolvePlace(lat, lng) {
   });
 }
 
+// --- Forward geocoding (address -> coordinates) -----------------------------
+//
+// Needed for work that never came from a door: a phone booking has an address
+// but no fix. Cached permanently like the reverse lookups, and biased towards
+// where you already work so "90 Glenthorne Drive" resolves to your Glenthorne
+// and not one in another country.
+
+function forwardKey(address) {
+  return `f:${normaliseAddress(address)}`;
+}
+
+export function cachedGeocode(address) {
+  const key = forwardKey(address);
+  if (key === 'f:') return null;
+  const hit = loadCache()[key];
+  return hit && typeof hit.lat === 'number' ? hit : null;
+}
+
+export function geocodeAddress(address, near) {
+  const key = forwardKey(address);
+  if (key === 'f:') return Promise.resolve(null);
+  const cached = loadCache()[key];
+  if (cached) return Promise.resolve(cached.lat === null ? null : cached);
+
+  return spaced(async () => {
+    const fresh = loadCache();
+    if (fresh[key]) return fresh[key].lat === null ? null : fresh[key];
+    try {
+      let url = `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q=${encodeURIComponent(
+        address
+      )}`;
+      if (near && typeof near.lat === 'number') {
+        // A bias, not a restriction: results outside still come back, ranked lower.
+        url += `&viewbox=${near.lng - 0.3},${near.lat + 0.3},${near.lng + 0.3},${near.lat - 0.3}`;
+      }
+      const response = await fetch(url, { headers: { Accept: 'application/json' } });
+      if (!response.ok) return null;
+      const body = await response.json();
+      const hit = Array.isArray(body) && body[0];
+      const store = loadCache();
+      if (!hit) {
+        // Remember the miss too, so a bad address is not retried forever.
+        store[key] = { lat: null, lng: null };
+        saveCache(store);
+        return null;
+      }
+      const result = { lat: parseFloat(hit.lat), lng: parseFloat(hit.lon) };
+      store[key] = result;
+      saveCache(store);
+      return result;
+    } catch {
+      return null;
+    }
+  });
+}
+
 export function placeLabel(place) {
   if (!place) return '';
   return place.road || place.area || place.city || '';

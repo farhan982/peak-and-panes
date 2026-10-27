@@ -30,7 +30,8 @@ export function renderCustomers(root) {
   }
 
   const due = domain.repeatDue(s);
-  if (due.length) page.appendChild(buildDueAgain(due));
+  const dueCard = due.length ? buildDueAgain(due) : null;
+  if (dueCard) page.appendChild(dueCard);
 
   const quotes = s.quotes;
   const jobs = s.jobs;
@@ -40,7 +41,8 @@ export function renderCustomers(root) {
     const theirJobs = jobs.filter((j) => j.customerId === customer.id);
     const theirQuotes = quotes.filter((q) => q.customerId === customer.id);
     const value = theirJobs.reduce((sum, j) => sum + (j.amount || 0), 0);
-    const [label, tone] = domain.customerStageLabel(s, customer);
+    const stage = domain.customerStage(s, customer);
+    const [label, tone] = domain.CUSTOMER_STAGES[stage];
 
     const parts = [];
     if (theirQuotes.length) parts.push(domain.plural(theirQuotes.length, 'quote'));
@@ -63,16 +65,28 @@ export function renderCustomers(root) {
     page.appendChild(row);
     searchable.push({
       el: row,
+      tag: stage,
       text: [customer.name, customer.address, customer.phone, customer.email, label]
         .filter(Boolean)
         .join(' '),
     });
   });
 
+  // Only the stages actually in use, in the order a customer moves through
+  // them, so the row is short and reads like a pipeline.
+  const counts = searchable.reduce((acc, r) => ({ ...acc, [r.tag]: (acc[r.tag] || 0) + 1 }), {});
+  const tags = [{ key: 'all', label: 'All', count: searchable.length }].concat(
+    Object.keys(domain.CUSTOMER_STAGES)
+      .filter((key) => counts[key])
+      .map((key) => ({ key, label: domain.CUSTOMER_STAGES[key][0], count: counts[key] }))
+  );
+
   attachSearch(page, {
     placeholder: 'Search name, address or phone',
     rows: searchable,
     emptyText: 'No customer matches that.',
+    tags,
+    alsoHide: dueCard,
   });
 }
 

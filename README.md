@@ -198,6 +198,14 @@ usual fix is to restore both afterwards, but not needing to is simpler and
 does not fight the keyboard on a phone. Each row carries the text it matches
 against. On Customers and on all three Jobs tabs.
 
+Customers also gets **status chips** through the same component: pass `tags`
+and give each row a `tag`. Only stages that actually have customers are
+offered, with counts, so the row stays short instead of listing seven options
+you do not use. Status and search compose — "pinecrest" plus *Quoted* gives
+the quoted customers on Pinecrest. `alsoHide` folds the Due again card away
+while either filter is active, since a highlight is noise when you are hunting
+for one record.
+
 ### Leads
 
 An *Interested* door creates an **open quote with no price** — a lead. It sits

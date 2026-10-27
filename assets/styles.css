@@ -38,6 +38,14 @@
   -webkit-tap-highlight-color: transparent;
 }
 
+/* The browser's own [hidden] rule is only `display: none` at user-agent
+   weight, so any author rule setting `display` beats it — and nearly every
+   row in this app is `display: flex`. Without this, el.hidden = true sets the
+   attribute and changes nothing on screen. */
+[hidden] {
+  display: none !important;
+}
+
 html,
 body {
   margin: 0;

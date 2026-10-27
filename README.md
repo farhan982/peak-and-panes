@@ -152,7 +152,15 @@ customer's own sheet, and a line in the Goal screen's recommendations.
 
 ### Search
 
-`attachSearch` filters **in the DOM** rather than by re-rendering. A re-render
+`attachSearch` filters **in the DOM** rather than by re-rendering. It relies on
+the `[hidden]` rule at the top of `styles.css` — the browser's own
+`[hidden] { display: none }` is only user-agent weight, so any author rule
+setting `display` beats it, and nearly every row here is `display: flex`.
+Without that rule `el.hidden = true` sets the attribute and changes nothing on
+screen. **Assert on computed display when testing visibility, never on the
+`hidden` property** — that is exactly how this shipped broken.
+
+ A re-render
 would replace the input on every keystroke and lose focus and the caret; the
 usual fix is to restore both afterwards, but not needing to is simpler and
 does not fight the keyboard on a phone. Each row carries the text it matches

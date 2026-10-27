@@ -14,10 +14,14 @@ const ROUTES = ['canvassing', 'jobs', 'customers', 'goal', 'settings', 'services
 
 function currentRoute() {
   const hash = location.hash.replace(/^#\/?/, '');
-  // #/quotes is a deep link into the Jobs screen's quotes tab, used by the
-  // follow-ups bell in the header.
+  // #/quotes is a ONE-SHOT deep link into the Jobs screen's quotes tab, used
+  // by the follow-ups bell. The hash is rewritten straight away because
+  // currentRoute runs on every render: left as #/quotes it would re-apply the
+  // tab each time, so tapping Upcoming or Completed was undone instantly.
+  // replaceState does not fire hashchange, so this does not re-render.
   if (hash === 'quotes') {
     setJobsTab('quotes');
+    history.replaceState(null, '', '#/jobs');
     return 'jobs';
   }
   return ROUTES.includes(hash) ? hash : 'dashboard';

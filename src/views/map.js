@@ -179,7 +179,15 @@ async function draw(holder, points, s) {
         });
     });
     if (list.length > 1) {
-      map.fitBounds(list.map((p) => [p.fix.lat, p.fix.lng]), { padding: [30, 30], maxZoom: 16 });
+      // No zoom animation: navigating away mid-transition left Leaflet's
+      // transition-end handler reading a pane that remove() had already torn
+      // down, which threw on _leaflet_pos. Fitting instantly also feels
+      // better on a panel that is only on screen for a glance.
+      map.fitBounds(list.map((p) => [p.fix.lat, p.fix.lng]), {
+        padding: [30, 30],
+        maxZoom: 16,
+        animate: false,
+      });
     }
   };
   plot(located);

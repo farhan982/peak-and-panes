@@ -16,17 +16,22 @@ export function renderGoal(root) {
   });
 
   page.appendChild(buildGoalCard(s, settings, now));
-  page.appendChild(buildLifetime(s, settings));
-  page.appendChild(buildTerritoryTable(s));
-  page.appendChild(buildServicesLink(s));
+
+  const plan = domain.goalPlan(s, settings, now);
+  if (plan) page.appendChild(buildPlan(plan));
+
+  // The most actionable card on the page should not be the one furthest down
+  // it, so recommendations sit directly under the goal and its plan.
+  const recs = domain.recommendations(s, settings, now);
+  if (recs.length) page.appendChild(buildRecommendations(recs));
 
   const active = domain.activeGoal(settings);
   if (active) page.appendChild(buildWeeklyTarget(s, active, now));
 
-  const recs = domain.recommendations(s, settings, now);
-  if (recs.length) page.appendChild(buildRecommendations(recs));
-
   page.appendChild(buildWeekOverview(s, now));
+  page.appendChild(buildTerritoryTable(s));
+  page.appendChild(buildServicesLink(s));
+  page.appendChild(buildLifetime(s, settings));
 
   const past = domain.pastGoals(settings);
   if (past.length) page.appendChild(buildGoalHistory(s, past));
@@ -96,6 +101,43 @@ function buildGoalCard(s, settings, now) {
 
 // All-time revenue sits outside any goal, so rolling from one goal to the next
 // never makes the running total appear to reset.
+// The goal stated as work rather than as money.
+function buildPlan(plan) {
+  const card = document.createElement('div');
+  card.className = 'card';
+  const column = (value, noun, perWeek) =>
+    value === null
+      ? ''
+      : `<div>
+          <p class="week-num">${value}</p>
+          <p class="week-label">${noun}</p>
+          <p class="plan-week">${perWeek} a week</p>
+        </div>`;
+
+  card.innerHTML = `
+    <div class="card-row">
+      <p class="card-title">What it takes</p>
+      <span class="muted" style="font-size:13px">${domain.formatCurrency(plan.remaining)} to go</span>
+    </div>
+    <div class="plan-grid">
+      ${column(plan.jobsNeeded, 'jobs', plan.jobsPerWeek)}
+      ${column(plan.quotesNeeded, 'quotes', plan.quotesPerWeek)}
+      ${column(plan.doorsNeeded, 'doors', plan.doorsPerWeek)}
+    </div>
+    <p class="card-sub" style="margin-top:12px">At your ${domain.formatCurrency(
+      plan.averageJob
+    )} average job and the rates you have been getting.</p>
+    ${
+      plan.aboveBestWeek
+        ? `<p class="plan-warn">That needs ${domain.formatCurrency(
+            plan.requiredPerWeek
+          )} a week — more than your best week so far of ${domain.formatCurrency(plan.bestWeek)}.</p>`
+        : ''
+    }
+  `;
+  return card;
+}
+
 function buildLifetime(s, settings) {
   const collected = domain.lifetimeCollected(s.jobs);
   const done = s.jobs.filter((j) => j.paymentReceived).length;

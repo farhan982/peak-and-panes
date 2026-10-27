@@ -734,6 +734,75 @@ export function serviceBreakdown(s) {
 }
 
 // ---------------------------------------------------------------------------
+// What the goal takes
+// ---------------------------------------------------------------------------
+
+// The most money collected in any single week so far. Used to say plainly
+// whether the required pace is something already achieved or something never
+// yet managed.
+export function bestWeekCollected(jobs) {
+  const byWeek = new Map();
+  jobs
+    .filter((j) => j.paymentReceived && j.completedAt)
+    .forEach((j) => {
+      const key = localDay(startOfWeek(toLocalDate(j.completedAt)));
+      byWeek.set(key, (byWeek.get(key) || 0) + (j.amount || 0));
+    });
+  let best = 0;
+  byWeek.forEach((value) => {
+    if (value > best) best = value;
+  });
+  return best;
+}
+
+// Turns the money still owed on the goal into the work that would produce it,
+// read back through the rates this business actually achieves. A target is
+// only useful if it can be stated as doors to knock.
+export function goalPlan(s, settings, now = new Date()) {
+  const goal = activeGoal(settings);
+  const progress = goalProgress(s.jobs, goal, now);
+  if (!progress || !progress.goal || progress.achieved || progress.remaining <= 0) return null;
+
+  // Completed work is the honest basis for an average ticket; fall back to
+  // everything booked only while nothing has been finished yet.
+  const completed = s.jobs.filter((j) => j.status === 'completed');
+  const pool = completed.length ? completed : s.jobs;
+  if (!pool.length) return null;
+  const averageJob = revenueBooked(pool) / pool.length;
+  if (!averageJob) return null;
+
+  const doors = s.doors.length;
+  // Rates are taken straight across rather than chained, so one uncertain
+  // ratio is not multiplied by another.
+  const jobsPerDoor = doors ? s.jobs.length / doors : 0;
+  const quotesPerDoor = doors ? s.quotes.length / doors : 0;
+
+  const jobsNeeded = Math.ceil(progress.remaining / averageJob);
+  const doorsNeeded = jobsPerDoor ? Math.ceil(jobsNeeded / jobsPerDoor) : null;
+  const quotesNeeded = doorsNeeded && quotesPerDoor ? Math.max(1, Math.round(doorsNeeded * quotesPerDoor)) : null;
+
+  const weeksLeft = Math.max(1, progress.daysLeft / 7);
+  const perWeek = (n) => (n === null ? null : Math.max(1, Math.ceil(n / weeksLeft)));
+
+  const best = bestWeekCollected(s.jobs);
+  return {
+    remaining: progress.remaining,
+    daysLeft: progress.daysLeft,
+    requiredPerWeek: progress.requiredPerWeek,
+    averageJob,
+    jobsNeeded,
+    quotesNeeded,
+    doorsNeeded,
+    jobsPerWeek: perWeek(jobsNeeded),
+    quotesPerWeek: perWeek(quotesNeeded),
+    doorsPerWeek: perWeek(doorsNeeded),
+    bestWeek: best,
+    // Worth saying out loud when the pace has never actually been hit.
+    aboveBestWeek: best > 0 && progress.requiredPerWeek > best,
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Week in review
 // ---------------------------------------------------------------------------
 

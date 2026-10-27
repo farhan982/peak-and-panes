@@ -114,6 +114,18 @@ from the tile's "3 of 6 done" (how many of this week's bookings are complete).
 quote down by the kind of work: jobs completed, revenue collected, average job
 value, and how many quotes for that service were accepted. All time.
 
+**What it takes** turns the money still owed into the work that would produce
+it — jobs, quotes and doors, in total and per week — read back through the
+rates this business actually achieves (`domain.goalPlan`). A target is only
+useful if it can be stated as doors to knock. The average ticket comes from
+*completed* work, and the door and quote rates are taken straight across
+rather than chained, so one uncertain ratio is never multiplied by another.
+When the required pace exceeds the best week ever collected, the card says so:
+pace arithmetic otherwise quietly assumes output can double on command.
+
+The cards are ordered most-actionable first — goal, what it takes, what to do
+next — rather than leaving the only actionable card at the bottom of the page.
+
 **Goal & Territories** answers "am I going to make it": collected against the
 target with a chart of actual versus the pace needed, territories ranked by
 **jobs completed**, the weekly target, and a short list of what to do next —

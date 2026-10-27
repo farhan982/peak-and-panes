@@ -1935,3 +1935,39 @@ button.terr-row {
 .chip.active .chip-count {
   opacity: 0.85;
 }
+
+/* --- What it takes -------------------------------------------------------- */
+
+.plan-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  text-align: center;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
+.plan-grid .week-num {
+  color: var(--ink);
+  font-size: 26px;
+}
+
+.plan-grid .week-label {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.plan-week {
+  margin: 4px 0 0;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--blue);
+}
+
+.plan-warn {
+  margin: 10px 0 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--orange);
+}

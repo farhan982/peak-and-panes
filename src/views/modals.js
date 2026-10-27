@@ -1558,3 +1558,90 @@ export function openEditTerritoryModal(territoryId) {
     });
   });
 }
+
+// --- Service detail --------------------------------------------------------
+
+export function openServiceSheet(service) {
+  const s = state.getState();
+  // A job counts for this service if any of its lines is this service, so a
+  // Windows + Eaves job appears under both.
+  const jobs = s.jobs
+    .filter((job) => domain.serviceList(job).some((l) => l.service === service))
+    .map((job) => {
+      const line = domain.attributedLines(job).find((l) => l.service === service);
+      return { job, share: line ? line.amount : 0, split: domain.serviceList(job).length > 1 };
+    })
+    .sort((a, b) => {
+      const aDone = a.job.status === 'completed';
+      const bDone = b.job.status === 'completed';
+      if (aDone !== bDone) return aDone ? -1 : 1; // finished work first
+      const av = a.job.completedAt || a.job.scheduledAt || a.job.createdAt;
+      const bv = b.job.completedAt || b.job.scheduledAt || b.job.createdAt;
+      return String(bv).localeCompare(String(av));
+    });
+
+  const done = jobs.filter((r) => r.job.status === 'completed');
+  const collected = jobs
+    .filter((r) => r.job.paymentReceived)
+    .reduce((sum, r) => sum + r.share, 0);
+
+  openSheet((sheet, close) => {
+    sheet.innerHTML = `
+      <p class="sheet-title">${esc(service)}</p>
+      <p class="sheet-sub">${
+        jobs.length
+          ? `${done.length} of ${domain.plural(jobs.length, 'job')} completed`
+          : 'Nothing booked for this service yet.'
+      }</p>
+      ${
+        jobs.length
+          ? `<div class="stat-card" style="margin-bottom:12px;grid-template-columns:repeat(3,1fr)">
+              <div class="stat-cell"><p class="stat-name">Completed</p><p class="stat-num">${done.length}</p></div>
+              <div class="stat-cell"><p class="stat-name">Booked</p><p class="stat-num">${jobs.length}</p></div>
+              <div class="stat-cell highlight"><p class="stat-name">Collected</p><p class="stat-num small">${domain.formatCurrency(
+                collected
+              )}</p></div>
+            </div>`
+          : ''
+      }
+      <div id="svc-list"></div>
+    `;
+
+    const list = sheet.querySelector('#svc-list');
+    jobs.forEach(({ job, share, split }) => {
+      const customer = state.getCustomer(job.customerId);
+      const finished = job.status === 'completed';
+      const row = document.createElement('button');
+      row.className = 'row';
+      row.innerHTML = `
+        <span class="status-dot${finished ? ' hollow' : ''}"></span>
+        <div class="row-main">
+          <p class="row-title">${esc(customer ? customer.name : 'Customer')}</p>
+          <p class="row-sub">${
+            finished
+              ? `Completed ${domain.formatDate(job.completedAt)}`
+              : job.scheduledAt
+              ? `Scheduled ${domain.formatDate(job.scheduledAt)}`
+              : 'Not scheduled'
+          }</p>
+          ${
+            // The money shown is this service's share, so say when the job was
+            // bigger than the service being looked at.
+            split ? `<p class="row-sub link">Part of ${esc(job.service)}</p>` : ''
+          }
+        </div>
+        <div class="row-right">
+          <p class="row-amount">${domain.formatCurrency(share)}</p>
+          <span class="pill ${finished ? (job.paymentReceived ? 'green' : 'orange') : 'blue'}">${
+            finished ? (job.paymentReceived ? 'Paid' : 'Unpaid') : 'Scheduled'
+          }</span>
+        </div>
+      `;
+      row.addEventListener('click', () => {
+        close();
+        openJobSheet(job.id);
+      });
+      list.appendChild(row);
+    });
+  });
+}

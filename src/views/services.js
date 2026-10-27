@@ -2,7 +2,7 @@ import * as state from '../state.js';
 import * as domain from '../domain.js';
 import { icon } from '../icons.js';
 import { buildScreen } from './header.js';
-import { esc } from './modals.js';
+import { esc, openServiceSheet } from './modals.js';
 
 export function renderServices(root) {
   const s = state.getState();
@@ -48,8 +48,9 @@ export function renderServices(root) {
   const widest = Math.max(...rows.map((r) => r.collected), 1);
 
   rows.forEach((row) => {
-    const card = document.createElement('div');
-    card.className = 'card service-card';
+    const card = document.createElement('button');
+    card.className = 'card service-card interactive';
+    card.addEventListener('click', () => openServiceSheet(row.service));
     card.innerHTML = `
       <div class="card-row">
         <div class="row-main">

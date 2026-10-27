@@ -1971,3 +1971,9 @@ button.terr-row {
   font-weight: 600;
   color: var(--orange);
 }
+
+button.service-card {
+  width: 100%;
+  text-align: left;
+  display: block;
+}

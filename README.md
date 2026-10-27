@@ -119,6 +119,11 @@ list is no longer ranked. It breaks every job and quote down by the kind of
 work: jobs completed, revenue collected, average job
 value, and how many quotes for that service were accepted. All time.
 
+Tapping a service opens every job that included it, finished work first, each
+row showing **that service's share** of the job rather than the whole ticket —
+a Windows + Eaves job appears under both, labelled "Part of…", with its money
+split by line. Rows open the job itself.
+
 **What it takes** turns the money still owed into the work that would produce
 it — jobs, quotes and doors, in total and per week — read back through the
 rates this business actually achieves (`domain.goalPlan`). A target is only

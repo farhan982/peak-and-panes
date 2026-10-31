@@ -10,6 +10,8 @@
 //     from its neighbour, so this never replaces the address field.
 
 const CACHE_KEY = 'peak-panes-geo-cache-v1';
+// Bumped when a cached value could be wrong rather than merely stale.
+const CACHE_GENERATION = 2;
 
 // Set once a request is refused, so the app stops re-prompting on every tap.
 let denied = false;
@@ -102,7 +104,19 @@ function cellKey(lat, lng) {
 
 function loadCache() {
   try {
-    return JSON.parse(localStorage.getItem(CACHE_KEY)) || {};
+    const cache = JSON.parse(localStorage.getItem(CACHE_KEY)) || {};
+    if (cache.__generation !== CACHE_GENERATION) {
+      // Address lookups made before the country and distance guards existed
+      // could have landed anywhere — one came back in North Carolina. Drop
+      // them so they resolve again. Reverse lookups (street names) were never
+      // wrong, so they stay.
+      Object.keys(cache).forEach((key) => {
+        if (key.startsWith('f:')) delete cache[key];
+      });
+      cache.__generation = CACHE_GENERATION;
+      saveCache(cache);
+    }
+    return cache;
   } catch {
     return {};
   }
@@ -180,6 +194,34 @@ export function cachedGeocode(address) {
   return hit && typeof hit.lat === 'number' ? hit : null;
 }
 
+// Anything further than this from where you actually work is not your job,
+// whatever the geocoder says. Generous enough to cover the whole GTA and then
+// some, tight enough to reject another province.
+const MAX_PLAUSIBLE_METRES = 150000;
+
+// Nominatim's viewbox is a *bias*, not a restriction, and it ignores it
+// freely: a bare "789 Sunset Blvd" came back in North Carolina and
+// "22 Ridgeview Court" in Alberta. Three guards instead.
+const COUNTRY = 'ca';
+
+// The city seen most often in your own reverse-geocoded doors. Used to finish
+// a bare street address, rather than hardcoding a city into the app.
+export function homeRegion() {
+  const counts = new Map();
+  Object.values(loadCache()).forEach((value) => {
+    if (value && value.city) counts.set(value.city, (counts.get(value.city) || 0) + 1);
+  });
+  let best = null;
+  let most = 0;
+  counts.forEach((count, city) => {
+    if (count > most) {
+      most = count;
+      best = city;
+    }
+  });
+  return best;
+}
+
 export function geocodeAddress(address, near) {
   const key = forwardKey(address);
   if (key === 'f:') return Promise.resolve(null);
@@ -190,25 +232,28 @@ export function geocodeAddress(address, near) {
     const fresh = loadCache();
     if (fresh[key]) return fresh[key].lat === null ? null : fresh[key];
     try {
-      let url = `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q=${encodeURIComponent(
-        address
+      // An address with no city is the ambiguous case, so give it one.
+      const region = homeRegion();
+      const query = region && !address.includes(',') ? `${address}, ${region}` : address;
+
+      let url = `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=5&countrycodes=${COUNTRY}&q=${encodeURIComponent(
+        query
       )}`;
       if (near && typeof near.lat === 'number') {
-        // A bias, not a restriction: results outside still come back, ranked lower.
         url += `&viewbox=${near.lng - 0.3},${near.lat + 0.3},${near.lng + 0.3},${near.lat - 0.3}`;
       }
       const response = await fetch(url, { headers: { Accept: 'application/json' } });
       if (!response.ok) return null;
       const body = await response.json();
-      const hit = Array.isArray(body) && body[0];
+      const result = pickNearest(Array.isArray(body) ? body : [], near);
+
       const store = loadCache();
-      if (!hit) {
+      if (!result) {
         // Remember the miss too, so a bad address is not retried forever.
         store[key] = { lat: null, lng: null };
         saveCache(store);
         return null;
       }
-      const result = { lat: parseFloat(hit.lat), lng: parseFloat(hit.lon) };
       store[key] = result;
       saveCache(store);
       return result;
@@ -216,6 +261,24 @@ export function geocodeAddress(address, near) {
       return null;
     }
   });
+}
+
+// Of the candidates, the closest one that is plausibly in your working area.
+// Several results also settles "which of the three Lawrence Avenues".
+function pickNearest(results, near) {
+  const points = results
+    .map((hit) => ({ lat: parseFloat(hit.lat), lng: parseFloat(hit.lon) }))
+    .filter((p) => !isNaN(p.lat) && !isNaN(p.lng));
+  if (!points.length) return null;
+  if (!near || typeof near.lat !== 'number') return points[0];
+
+  return (
+    points
+      .map((p) => ({ p, distance: distanceMetres(near, p) }))
+      .filter((x) => x.distance <= MAX_PLAUSIBLE_METRES)
+      .sort((a, b) => a.distance - b.distance)
+      .map((x) => x.p)[0] || null
+  );
 }
 
 export function placeLabel(place) {

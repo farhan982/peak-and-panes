@@ -194,6 +194,8 @@ async function draw(holder, points, s) {
 
   // Fill in the missing ones as the lookups come back, without re-rendering
   // the screen underneath the map.
+  const unplaced = points.filter((p) => !p.fix && !p.address).length;
+  let unresolved = 0;
   if (pending.length) {
     const near = domain.workingCentre(s);
     for (const point of pending) {
@@ -203,7 +205,23 @@ async function draw(holder, points, s) {
       if (fix) {
         located.push({ ...point, fix });
         plot(located);
+      } else {
+        unresolved += 1;
       }
+    }
+  }
+
+  // An address the geocoder could not place near you gets no pin at all,
+  // which would otherwise look like the job had simply vanished.
+  const missing = unplaced + unresolved;
+  if (missing && holder.isConnected) {
+    const panel = holder.closest('.map-panel');
+    const legend = panel && panel.querySelector('.map-legend');
+    if (legend && !legend.querySelector('.map-missing')) {
+      const note = document.createElement('span');
+      note.className = 'map-missing';
+      note.textContent = `${missing} not placed`;
+      legend.insertBefore(note, legend.querySelector('.map-full-link') || null);
     }
   }
 }

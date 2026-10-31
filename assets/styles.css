@@ -1977,3 +1977,8 @@ button.service-card {
   text-align: left;
   display: block;
 }
+
+.map-missing {
+  color: var(--orange);
+  font-weight: 650;
+}

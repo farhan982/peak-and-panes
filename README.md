@@ -180,11 +180,18 @@ Pins are `circleMarker` (pure SVG), which avoids Leaflet's marker image files
 entirely.
 
 Positions come from the door that produced the record. Work booked by phone
-never had a fix, so `geo.geocodeAddress` looks the address up — biased towards
-`domain.workingCentre`, the middle of where you already canvass, so a bare
-street name resolves to your neighbourhood rather than one in another country.
-Misses are cached too, so a bad address is not retried forever. Tiles need a
-connection; everything else degrades to a message rather than a blank box.
+never had a fix, so `geo.geocodeAddress` looks the address up. Nominatim's
+`viewbox` is only a ranking *bias* and it ignores it freely — a bare "789
+Sunset Blvd" came back in North Carolina — so three guards stand behind it
+instead: `countrycodes=ca`; `limit=5` and `pickNearest`, which takes the
+closest candidate within 150km of `domain.workingCentre` and rejects the rest;
+and `homeRegion()`, which appends the city seen most often in your own
+reverse-geocoded doors to an address that has no comma in it, so a bare street
+name is asked as a question about your city. An address that survives none of
+that gets no pin, and the legend says `N not placed` rather than letting the
+job quietly disappear. Misses are cached too, so a bad address is not retried
+forever. Tiles need a connection; everything else degrades to a message rather
+than a blank box.
 
 ## Repeat work
 

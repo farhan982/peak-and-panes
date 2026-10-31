@@ -275,5 +275,14 @@ function buildDueAgain(due) {
     more.textContent = `and ${due.length - 6} more.`;
     card.appendChild(more);
   }
+
+  const text = document.createElement('button');
+  text.className = 'btn-primary';
+  text.style.marginTop = '14px';
+  text.textContent = 'Send season reminders';
+  text.addEventListener('click', () => {
+    location.hash = '#/reminders';
+  });
+  card.appendChild(text);
   return card;
 }

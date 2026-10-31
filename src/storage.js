@@ -175,6 +175,9 @@ const DEFAULT_SETTINGS = {
   goals: [],
   lastBackupAt: null,
   backupReminderSnoozedAt: null,
+  // Empty means the stock wording. Kept as the user typed it so editing it
+  // never fights a default being re-applied underneath.
+  reminderTemplate: '',
 };
 
 export function newGoal({ amount, weeklyTarget, startDate, endDate }) {

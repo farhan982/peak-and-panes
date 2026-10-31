@@ -3,7 +3,7 @@ import * as domain from '../domain.js';
 import { icon } from '../icons.js';
 import { buildScreen } from './header.js';
 import * as geo from '../geo.js';
-import { openGoalModal } from './modals.js';
+import { openGoalModal, esc } from './modals.js';
 import { downloadBackup, restoreFromText, countRecords } from '../backup.js';
 
 export function renderSettings(root) {
@@ -30,6 +30,53 @@ export function renderSettings(root) {
     if (value !== (settings.userName || '')) state.updateSettings({ userName: value });
   });
   page.appendChild(you);
+
+  // --- Season reminder wording ---------------------------------------------
+  const template = settings.reminderTemplate || domain.DEFAULT_REMINDER;
+  const reminder = document.createElement('div');
+  reminder.className = 'card';
+  reminder.innerHTML = `
+    <p class="card-title" style="margin-bottom:6px">Season reminder</p>
+    <p class="card-sub" style="margin-bottom:12px">The text sent to past customers
+      when their work comes round again. ${domain.REMINDER_FIELDS.map(
+        (field) => `<code>${field}</code>`
+      ).join(' ')} are filled in for each person.</p>
+    <div class="field" style="margin-bottom:0">
+      <label>Wording</label>
+      <textarea id="s-reminder" rows="4">${esc(template)}</textarea>
+    </div>
+    <p class="card-sub" style="margin-top:10px;margin-bottom:4px">How it reads</p>
+    <p class="reminder-draft" id="s-reminder-preview"></p>
+  `;
+
+  const templateInput = reminder.querySelector('#s-reminder');
+  const preview = reminder.querySelector('#s-reminder-preview');
+  // Live, because the only way to know whether a placeholder is spelt right is
+  // to watch it turn into a name.
+  const paint = () => {
+    preview.textContent = domain.reminderText(templateInput.value || domain.DEFAULT_REMINDER, {
+      name: 'Maya Patel',
+      service: 'Exterior Windows',
+      me: settings.userName,
+    });
+  };
+  paint();
+  templateInput.addEventListener('input', paint);
+  // Saved on blur, not per keystroke: updateSettings re-renders and would take
+  // the caret with it mid-sentence.
+  templateInput.addEventListener('blur', () => {
+    const value = templateInput.value.trim();
+    const stored = value === domain.DEFAULT_REMINDER ? '' : value;
+    if (stored !== (settings.reminderTemplate || '')) state.updateSettings({ reminderTemplate: stored });
+  });
+
+  const reset = document.createElement('button');
+  reset.className = 'btn-secondary';
+  reset.style.marginTop = '12px';
+  reset.textContent = 'Back to the stock wording';
+  reset.addEventListener('click', () => state.updateSettings({ reminderTemplate: '' }));
+  reminder.appendChild(reset);
+  page.appendChild(reminder);
 
   // --- Goals ---------------------------------------------------------------
   const active = domain.activeGoal(settings);

@@ -8,10 +8,11 @@ import { renderDashboard } from './views/dashboard.js';
 import { renderGoal } from './views/goal.js';
 import { renderServices } from './views/services.js';
 import { renderMap, destroyMaps } from './views/map.js';
+import { renderReminders } from './views/reminders.js';
 import { buildBottomNav } from './views/nav.js';
 
 const root = document.getElementById('app');
-const ROUTES = ['canvassing', 'jobs', 'customers', 'goal', 'settings', 'services', 'map'];
+const ROUTES = ['canvassing', 'jobs', 'customers', 'goal', 'settings', 'services', 'map', 'reminders'];
 
 function currentRoute() {
   const hash = location.hash.replace(/^#\/?/, '');
@@ -53,12 +54,22 @@ function render() {
     renderServices(root);
   } else if (route === 'map') {
     renderMap(root);
+  } else if (route === 'reminders') {
+    renderReminders(root);
   } else {
     renderDashboard(root);
   }
   // Settings has no tab of its own; it is reached from the header gear.
   const navRoute =
-    route === 'settings' ? '' : route === 'services' ? 'goal' : route === 'map' ? 'jobs' : route;
+    route === 'settings'
+      ? ''
+      : route === 'services'
+        ? 'goal'
+        : route === 'map'
+          ? 'jobs'
+          : route === 'reminders'
+            ? 'customers'
+            : route;
   root.appendChild(buildBottomNav(navRoute));
 }
 

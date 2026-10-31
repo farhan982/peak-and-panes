@@ -666,6 +666,92 @@ export function repeatDue(s, now = new Date()) {
 }
 
 // ---------------------------------------------------------------------------
+// Season reminders
+// ---------------------------------------------------------------------------
+
+// Meteorological seasons, not astronomical ones: a customer saying "spring is
+// here" means March, not the 20th of March. Northern hemisphere — this
+// business is in Ontario.
+export function season(now = new Date()) {
+  const month = now.getMonth();
+  if (month === 11 || month <= 1) return 'Winter';
+  if (month <= 4) return 'Spring';
+  if (month <= 7) return 'Summer';
+  return 'Autumn';
+}
+
+// Written to be read out loud and to sound like one person texting another,
+// because that is exactly what it is — it goes from your own number.
+// Phrased around the season rather than the service, because the service
+// names are a mix of plural and singular — "your eaves is due" and "your
+// painting are due" are both wrong, and no single verb fits them all.
+export const DEFAULT_REMINDER =
+  'Hi {name}, Peak & Panes here. {season} is here — want me to book your {service} in again?';
+
+export const REMINDER_FIELDS = ['{name}', '{service}', '{season}', '{me}'];
+
+export function daysSince(iso, now = new Date()) {
+  if (!iso) return null;
+  const then = toLocalDate(iso);
+  return Math.max(0, Math.floor((localMidnight(now) - localMidnight(then)) / 86400000));
+}
+
+function localMidnight(date) {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+}
+
+// A text you are about to send under your own name, so nothing is guessed at:
+// a customer with no first name on file is addressed as "there" rather than
+// being greeted by an empty space.
+export function reminderText(template, { name, service, me } = {}, now = new Date()) {
+  const first = String(name || '').trim().split(/\s+/)[0];
+  return String(template || DEFAULT_REMINDER)
+    .replace(/\{name\}/g, first || 'there')
+    .replace(/\{service\}/g, String(service || 'service').toLowerCase())
+    .replace(/\{season\}/g, season(now))
+    .replace(/\{me\}/g, String(me || '').trim())
+    // A dropped {me} leaves a gap and a stranded space before punctuation.
+    .replace(/[ \t]{2,}/g, ' ')
+    .replace(/[ \t]+([,.!?])/g, '$1')
+    .trim();
+}
+
+// The phone's own Messages app, pre-filled. iOS wants the body after `&`,
+// Android after `?`; `?&` is the form both have taken for years. Nothing is
+// sent by the app — the draft opens and you press send.
+export function smsHref(phone, body) {
+  const number = String(phone || '').replace(/[^\d+]/g, '');
+  if (!number) return null;
+  return `sms:${number}?&body=${encodeURIComponent(body)}`;
+}
+
+// Everyone worth a season reminder: the repeat-work list, with the draft and
+// whether you have already been in touch. Sorted so the people you have not
+// texted yet come first — this is a list you work down in one sitting.
+export function reminders(s, settings, now = new Date()) {
+  const template = (settings && settings.reminderTemplate) || DEFAULT_REMINDER;
+  const me = (settings && settings.userName) || '';
+
+  return repeatDue(s, now)
+    .map((entry) => {
+      const body = reminderText(template, { name: entry.customer.name, service: entry.service, me }, now);
+      return {
+        ...entry,
+        body,
+        href: smsHref(entry.customer.phone, body),
+        sentDaysAgo: daysSince(entry.customer.lastRemindedAt, now),
+      };
+    })
+    .sort((a, b) => {
+      // What you can act on, in the order you would work down it: people not
+      // yet texted, then the ones with no number to text, then the ones
+      // already done. Most overdue first inside each.
+      const rank = (x) => (x.sentDaysAgo !== null ? 2 : x.href ? 0 : 1);
+      return rank(a) - rank(b) || b.overdueBy - a.overdueBy || b.months - a.months;
+    });
+}
+
+// ---------------------------------------------------------------------------
 // Backup reminder
 // ---------------------------------------------------------------------------
 

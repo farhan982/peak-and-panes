@@ -2066,3 +2066,45 @@ button.service-card {
     font-size: 9.5px;
   }
 }
+
+/* --- Season reminders ----------------------------------------------------- */
+
+/* Shown the way it will arrive, so what you are about to send to a customer
+   is never a guess. */
+.reminder-draft {
+  margin: 0;
+  padding: 12px 14px;
+  background: var(--blue-soft);
+  border-radius: var(--radius-sm);
+  font-size: 14.5px;
+  line-height: 1.5;
+  color: var(--ink);
+}
+
+.reminder-row {
+  gap: 10px;
+}
+
+.reminder-row .row-main {
+  text-align: left;
+}
+
+/* An anchor, not a button, so it keeps the link behaviour the phone needs to
+   hand it to Messages — which means it needs the button's sizing back. */
+.reminder-send {
+  flex: none;
+  width: auto;
+  min-width: 74px;
+  padding: 10px 16px;
+  text-align: center;
+  text-decoration: none;
+}
+
+.card-sub code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  background: #eef2f7;
+  border-radius: 5px;
+  padding: 1px 5px;
+  color: var(--navy);
+}

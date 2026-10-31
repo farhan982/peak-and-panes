@@ -347,6 +347,17 @@ function addCustomer(fields) {
   return customer;
 }
 
+// Tapping Text hands the draft to the Messages app; whether it was actually
+// sent is between you and your thumb, so this records that you went that far
+// and nothing stronger. It deliberately does not snooze the repeat — you still
+// want them in Due again until they are back on the books.
+export function markReminded(customerId) {
+  const customer = getCustomer(customerId);
+  if (!customer) return;
+  customer.lastRemindedAt = new Date().toISOString();
+  notify();
+}
+
 export function updateCustomer(customerId, fields) {
   const customer = getCustomer(customerId);
   if (!customer) return;

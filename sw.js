@@ -2,7 +2,7 @@
 // connection the browser always gets current files, so a deploy takes effect
 // immediately. The cache only serves when the network is unreachable.
 // Bump CACHE_VERSION whenever PRECACHE changes.
-const CACHE_VERSION = 'peak-panes-v32';
+const CACHE_VERSION = 'peak-panes-v33';
 
 const PRECACHE = [
   './',
@@ -32,6 +32,7 @@ const PRECACHE = [
   './src/views/modals.js',
   './src/views/map.js',
   './src/views/nav.js',
+  './src/views/reminders.js',
   './src/views/services.js',
   './src/views/search.js',
   './src/views/settings.js',

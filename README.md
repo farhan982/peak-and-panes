@@ -211,6 +211,41 @@ for three months without pretending the work was done.
 It surfaces as a **Due again** card at the top of Customers, a banner on the
 customer's own sheet, and a line in the Goal screen's recommendations.
 
+### Season reminders
+
+`#/reminders` turns the repeat list into an afternoon's work: every past
+customer `repeatDue` finds, with the text already written and their number
+already in it. **The app sends nothing itself.** There is no server behind it
+and no silent way to put a text on the network from a web page, so each row is
+a real `<a href="sms:...">` that hands the finished draft to the phone's own
+Messages app — it goes from your number, and the replies come back to you. The
+href is `sms:<number>?&body=<text>`: iOS wants the body after `&` and Android
+after `?`, and `?&` is the form both have taken for years.
+
+`domain.season()` uses **meteorological** seasons, not astronomical ones — a
+customer saying "spring is here" means March, not the 20th. The wording lives
+in `settings.reminderTemplate` (empty means the stock sentence) with
+`{name} {service} {season} {me}` filled in per person; Settings edits it
+against a live preview, because the only way to know a placeholder is spelt
+right is to watch it turn into a name. `{name}` falls back to "there" rather
+than greeting an empty space. The stock sentence is built **around** the
+service rather than agreeing with it — "your eaves is due" and "your painting
+are due" are both wrong, and no single verb fits the whole list.
+
+Tapping Text records `customer.lastRemindedAt` and nothing stronger: whether
+it was actually sent is between you and your thumb. It deliberately does *not*
+snooze the repeat, because you still want that customer in **Due again** until
+they are back on the books. The write is deferred a tick — marking it
+re-renders the screen, and tearing the anchor out of the document inside its
+own click handler can lose the navigation that was the point of the tap. Rows
+sort the way you work down them: not yet texted, then the ones with no number
+to text, then the ones already done.
+
+Going further than this — actually sending in bulk, unattended — needs a paid
+SMS gateway and a server, and under Canada's anti-spam law, consent on file
+and an unsubscribe line. That is a different app with a running cost, not a
+flag on this one.
+
 ### Search
 
 `attachSearch` filters **in the DOM** rather than by re-rendering. It relies on

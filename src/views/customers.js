@@ -12,7 +12,15 @@ export function renderCustomers(root) {
   });
 
   const s = state.getState();
-  const customers = [...state.getCustomers()].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  // Alphabetical, with the # group last so the list runs in the same order as
+  // the index down the side. Plain localeCompare sorts digits ahead of A.
+  const customers = [...state.getCustomers()].sort((a, b) => {
+    const rank = (c) => (groupLetter(c.name) === '#' ? 1 : 0);
+    return (
+      rank(a) - rank(b) ||
+      (a.name || '').localeCompare(b.name || '', undefined, { sensitivity: 'base', numeric: true })
+    );
+  });
 
   if (!customers.length) {
     const card = document.createElement('div');
@@ -36,6 +44,8 @@ export function renderCustomers(root) {
   const quotes = s.quotes;
   const jobs = s.jobs;
   const searchable = [];
+  // Letter -> { head, rows }, in the order the sorted list produces them.
+  const sections = new Map();
 
   customers.forEach((customer) => {
     const theirJobs = jobs.filter((j) => j.customerId === customer.id);
@@ -62,7 +72,18 @@ export function renderCustomers(root) {
         <span class="pill ${tone}">${label}</span>
       </div>
     `;
+    // Sorted, so each letter's names arrive together and one heading per
+    // letter is enough.
+    const letter = groupLetter(customer.name);
+    if (!sections.has(letter)) {
+      const head = document.createElement('p');
+      head.className = 'letter-head';
+      head.textContent = letter;
+      page.appendChild(head);
+      sections.set(letter, { head, rows: [] });
+    }
     page.appendChild(row);
+    sections.get(letter).rows.push(row);
     searchable.push({
       el: row,
       tag: stage,
@@ -81,13 +102,145 @@ export function renderCustomers(root) {
       .map((key) => ({ key, label: domain.CUSTOMER_STAGES[key][0], count: counts[key] }))
   );
 
+  // Below this the whole list is already on screen, so the strip would only
+  // take a bite out of the width and jump the page about when tapped.
+  const index = customers.length >= INDEX_FROM ? buildAlphaIndex(page, sections) : null;
+  if (index) {
+    // The strip is fixed over the right edge of the column, so the content
+    // needs a channel of its own or the stage pills end up underneath it.
+    page.classList.add('alpha-gutter');
+  }
+
   attachSearch(page, {
     placeholder: 'Search name, address or phone',
     rows: searchable,
     emptyText: 'No customer matches that.',
     tags,
     alsoHide: dueCard,
+    afterApply: index ? index.sync : null,
   });
+  if (index) index.sync(false);
+}
+
+const INDEX_FROM = 12;
+
+// Names starting with anything that is not a letter — a number, a company
+// sign, an accent the sort already folded away — group under #, last, the way
+// a phone's contacts do.
+function groupLetter(name) {
+  const first = (name || '')
+    .trim()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .charAt(0)
+    .toUpperCase();
+  return first >= 'A' && first <= 'Z' ? first : '#';
+}
+
+const LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ#'.split('');
+
+// The strip down the right edge: tap a letter to jump, or hold and slide to
+// scrub through the list, with a bubble showing where your thumb is.
+function buildAlphaIndex(page, sections) {
+  const nav = document.createElement('nav');
+  nav.className = 'alpha-index';
+  nav.setAttribute('aria-label', 'Jump to a letter');
+
+  const buttons = new Map();
+  LETTERS.forEach((letter) => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'alpha-letter';
+    button.textContent = letter;
+    button.setAttribute('aria-label', letter === '#' ? 'Other' : letter);
+    // Keyboard only. A pointer is handled on the strip as a whole so that a
+    // slide keeps working after it leaves the letter it started on.
+    button.addEventListener('click', (e) => {
+      if (e.detail === 0) jump(letter, true);
+    });
+    nav.appendChild(button);
+    buttons.set(letter, button);
+  });
+
+  const bubble = document.createElement('span');
+  bubble.className = 'alpha-bubble';
+  bubble.hidden = true;
+  page.appendChild(bubble);
+  page.appendChild(nav);
+
+  // A letter nobody is filed under still goes somewhere — the next name after
+  // it, or the last one before it — so no tap on the strip does nothing.
+  function jump(letter, smooth) {
+    const from = LETTERS.indexOf(letter);
+    const live = (i) => {
+      const section = sections.get(LETTERS[i]);
+      return section && !section.head.hidden ? section.head : null;
+    };
+    let head = null;
+    for (let i = from; i < LETTERS.length && !head; i += 1) head = live(i);
+    for (let i = from - 1; i >= 0 && !head; i -= 1) head = live(i);
+    if (!head) return;
+    const y = head.getBoundingClientRect().top + window.scrollY - 10;
+    window.scrollTo({ top: Math.max(0, y), behavior: smooth ? 'smooth' : 'auto' });
+  }
+
+  // Which letter is under the pointer, from the strip's own geometry rather
+  // than hit-testing — the gaps between buttons would otherwise read as
+  // nothing and the scrub would stutter.
+  function letterAt(clientY) {
+    const rect = nav.getBoundingClientRect();
+    const slot = Math.floor(((clientY - rect.top) / rect.height) * LETTERS.length);
+    return LETTERS[Math.min(LETTERS.length - 1, Math.max(0, slot))];
+  }
+
+  let held = null;
+  function track(e) {
+    const letter = letterAt(e.clientY);
+    bubble.hidden = false;
+    bubble.textContent = letter;
+    bubble.style.top = `${e.clientY}px`;
+    if (letter === held) return;
+    held = letter;
+    jump(letter, false);
+  }
+
+  nav.addEventListener('pointerdown', (e) => {
+    // Capture, so sliding off the strip keeps scrubbing instead of dropping
+    // the gesture on whatever row is underneath. Not every pointer can be
+    // captured, and a throw here would lose the gesture entirely.
+    try {
+      nav.setPointerCapture(e.pointerId);
+    } catch {
+      /* scrubbing still works while the pointer stays on the strip */
+    }
+    e.preventDefault();
+    track(e);
+  });
+  nav.addEventListener('pointermove', (e) => {
+    if (held !== null) track(e);
+  });
+  const release = () => {
+    held = null;
+    bubble.hidden = true;
+  };
+  nav.addEventListener('pointerup', release);
+  nav.addEventListener('pointercancel', release);
+
+  return {
+    // Searching hides rows one by one, which can empty a letter out or the
+    // whole list; the headings and the strip follow along.
+    sync(narrowing) {
+      LETTERS.forEach((letter) => {
+        const section = sections.get(letter);
+        const any = section && section.rows.some((row) => !row.hidden);
+        if (section) section.head.hidden = !any;
+        buttons.get(letter).classList.toggle('empty', !any);
+      });
+      // Down to a handful of matches there is nothing to jump past.
+      nav.hidden = narrowing;
+      if (narrowing) release();
+    },
+  };
 }
 
 // Past customers whose work is old enough to be worth offering again. This is

@@ -235,6 +235,25 @@ the quoted customers on Pinecrest. `alsoHide` folds the Due again card away
 while either filter is active, since a highlight is noise when you are hunting
 for one record.
 
+### The customer index
+
+Customers are listed **A to Z with # last**, under a `.letter-head` per
+letter, and from twelve names up a phone-style **index strip** is fixed down
+the right edge. Tap a letter to jump; hold and slide to scrub, with a bubble
+showing the letter under your thumb. Letters nobody is filed under are dimmed
+but still live — they land on the next name after them — so no tap on the
+strip does nothing. The strip handles the pointer itself rather than the
+letter buttons (`pointer-events: none` on those), because a slide leaves the
+letter it started on immediately; the buttons stay real buttons for the
+keyboard. Below twelve names the whole list is already on screen, so the strip
+is left off rather than taking a bite out of the width and jumping the page
+when tapped.
+
+Searching hides rows one at a time, which the headings and the strip cannot
+see, so `attachSearch` takes an **`afterApply`** callback: empty letters drop
+their heading, and the strip hides entirely while a filter is narrowing the
+list.
+
 ### Leads
 
 An *Interested* door creates an **open quote with no price** — a lead. It sits

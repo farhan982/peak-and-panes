@@ -1982,3 +1982,87 @@ button.service-card {
   color: var(--orange);
   font-weight: 650;
 }
+
+/* --- Customers: letter sections and the index strip ----------------------- */
+
+/* The index strip is fixed over the right edge of the column, so the screen
+   that carries one keeps a channel clear for it. */
+.page.alpha-gutter {
+  padding-right: calc(36px + env(safe-area-inset-right, 0px));
+}
+
+.letter-head {
+  margin: 16px 0 8px 4px;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.09em;
+  color: var(--muted);
+}
+
+/* Fixed to the right edge of the app column rather than the window, so on a
+   wide screen it stays beside the list instead of stranded out in the margin.
+   max() keeps it on the edge once the window is narrower than the column. */
+.alpha-index {
+  position: fixed;
+  top: 50%;
+  transform: translateY(-50%);
+  right: calc(max(0px, (100vw - 560px) / 2) + 2px + env(safe-area-inset-right, 0px));
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 6px 5px;
+  border-radius: 12px;
+  /* Sliding a thumb down the strip must scrub it, not scroll the page under
+     it, and the letters must not be selectable mid-drag. */
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.alpha-letter {
+  width: 17px;
+  height: 17px;
+  line-height: 17px;
+  padding: 0;
+  text-align: center;
+  font-size: 10.5px;
+  font-weight: 800;
+  color: var(--blue);
+  /* The strip handles the pointer itself, so a button must not swallow it. */
+  pointer-events: none;
+}
+
+.alpha-letter.empty {
+  color: var(--dim);
+  font-weight: 650;
+}
+
+/* The letter under your thumb, offset to its left so the thumb is not
+   covering the one thing it needs to read. */
+.alpha-bubble {
+  position: fixed;
+  right: calc(max(0px, (100vw - 560px) / 2) + 36px + env(safe-area-inset-right, 0px));
+  transform: translateY(-50%);
+  z-index: 21;
+  min-width: 46px;
+  padding: 6px 0;
+  text-align: center;
+  font-size: 20px;
+  font-weight: 800;
+  color: #fff;
+  background: var(--navy);
+  border-radius: 12px;
+  box-shadow: 0 6px 18px rgba(16, 32, 58, 0.28);
+  pointer-events: none;
+}
+
+/* A short window cannot fit 27 letters at full size. */
+@media (max-height: 640px) {
+  .alpha-letter {
+    width: 15px;
+    height: 15px;
+    line-height: 15px;
+    font-size: 9.5px;
+  }
+}

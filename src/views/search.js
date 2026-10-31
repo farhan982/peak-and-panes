@@ -6,7 +6,7 @@
 // Relies on the global [hidden] rule in styles.css: the browser's own
 // [hidden] { display: none } is user-agent weight, so any author rule setting
 // display beats it, and almost every row here is display: flex.
-export function attachSearch(page, { placeholder, rows, emptyText, tags, alsoHide }) {
+export function attachSearch(page, { placeholder, rows, emptyText, tags, alsoHide, afterApply }) {
   if (!rows.length) return;
 
   let query = '';
@@ -59,7 +59,12 @@ export function attachSearch(page, { placeholder, rows, emptyText, tags, alsoHid
     // A highlight card above the list is noise while you are hunting for one
     // particular record.
     if (alsoHide) alsoHide.hidden = narrowing;
+    // Anything grouping the rows — section headings, an index down the side —
+    // has to be told, because it cannot see `hidden` being set row by row.
+    if (afterApply) afterApply(narrowing);
   }
+
+  apply();
 
   input.addEventListener('input', () => {
     query = input.value;

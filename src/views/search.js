@@ -49,8 +49,11 @@ export function attachSearch(page, { placeholder, rows, emptyText, tags, alsoHid
   function apply() {
     const needle = query.trim().toLowerCase();
     let shown = 0;
-    rows.forEach(({ el, text, tag: rowTag }) => {
-      const match = (!needle || text.toLowerCase().includes(needle)) && (tag === 'all' || rowTag === tag);
+    rows.forEach(({ el, text, tag: rowTag, tags: rowTags }) => {
+      // A row can sit under more than one chip — a customer is a stage and,
+      // separately, may be one with no territory on them.
+      const owned = rowTags || (rowTag ? [rowTag] : []);
+      const match = (!needle || text.toLowerCase().includes(needle)) && (tag === 'all' || owned.includes(tag));
       el.hidden = !match;
       if (match) shown += 1;
     });

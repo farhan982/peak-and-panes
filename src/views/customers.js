@@ -2,13 +2,19 @@ import * as state from '../state.js';
 import * as domain from '../domain.js';
 import { icon } from '../icons.js';
 import { buildScreen } from './header.js';
-import { esc, openCustomerSheet } from './modals.js';
+import { esc, openCustomerSheet, openAddCustomerModal } from './modals.js';
 import { attachSearch } from './search.js';
 
 export function renderCustomers(root) {
+  const add = document.createElement('button');
+  add.className = 'band-action';
+  add.textContent = 'Add';
+  add.addEventListener('click', () => openAddCustomerModal());
+
   const page = buildScreen(root, {
     title: 'Customers',
-    subtitle: 'Every name taken at a door.',
+    subtitle: 'Names from the doors, and the ones who came to you.',
+    right: add,
   });
 
   const s = state.getState();
@@ -30,9 +36,15 @@ export function renderCustomers(root) {
         <div class="stub-icon">${icon('people', 26)}</div>
         <h2>No customers yet</h2>
         <p>Logging a quote, a booking, or a named follow-up during a canvassing
-          session creates the customer record automatically.</p>
+          session creates the customer record automatically. Anyone who came to
+          you another way can be added by hand.</p>
       </div>
     `;
+    const first = document.createElement('button');
+    first.className = 'btn-primary';
+    first.textContent = 'Add a customer';
+    first.addEventListener('click', () => openAddCustomerModal());
+    card.appendChild(first);
     page.appendChild(card);
     return;
   }
@@ -58,6 +70,9 @@ export function renderCustomers(root) {
     if (theirQuotes.length) parts.push(domain.plural(theirQuotes.length, 'quote'));
     if (theirJobs.length) parts.push(domain.plural(theirJobs.length, 'job'));
 
+    const territory = customer.territoryId ? state.getTerritory(customer.territoryId) : null;
+    const territoryName = territory ? territory.name : '';
+
     const row = document.createElement('button');
     row.className = 'row';
     row.addEventListener('click', () => openCustomerSheet(customer.id));
@@ -65,7 +80,9 @@ export function renderCustomers(root) {
       <div class="row-main">
         <p class="row-title">${esc(customer.name)}</p>
         <p class="row-sub">${esc(customer.address || customer.phone || customer.source)}</p>
-        <p class="row-sub link">${parts.join(' · ') || 'No quotes yet'}</p>
+        <p class="row-sub link">${[parts.join(' · ') || 'No quotes yet', territoryName]
+          .filter(Boolean)
+          .join(' · ')}</p>
       </div>
       <div class="row-right">
         ${value ? `<p class="row-amount">${domain.formatCurrency(value)}</p>` : ''}
@@ -86,8 +103,10 @@ export function renderCustomers(root) {
     sections.get(letter).rows.push(row);
     searchable.push({
       el: row,
-      tag: stage,
-      text: [customer.name, customer.address, customer.phone, customer.email, label]
+      // Two chips can own the same row: the stage it is at, and — until you
+      // put it on a street — the fact that it belongs to nowhere.
+      tags: territory ? [stage] : [stage, NO_TERRITORY],
+      text: [customer.name, customer.address, customer.phone, customer.email, label, territoryName]
         .filter(Boolean)
         .join(' '),
     });
@@ -95,12 +114,18 @@ export function renderCustomers(root) {
 
   // Only the stages actually in use, in the order a customer moves through
   // them, so the row is short and reads like a pipeline.
-  const counts = searchable.reduce((acc, r) => ({ ...acc, [r.tag]: (acc[r.tag] || 0) + 1 }), {});
+  const counts = {};
+  searchable.forEach((r) => r.tags.forEach((key) => { counts[key] = (counts[key] || 0) + 1; }));
   const tags = [{ key: 'all', label: 'All', count: searchable.length }].concat(
     Object.keys(domain.CUSTOMER_STAGES)
       .filter((key) => counts[key])
       .map((key) => ({ key, label: domain.CUSTOMER_STAGES[key][0], count: counts[key] }))
   );
+  // Last, and only when there are any: it is a job to be done rather than a
+  // stage a customer is at.
+  if (counts[NO_TERRITORY]) {
+    tags.push({ key: NO_TERRITORY, label: 'No territory', count: counts[NO_TERRITORY] });
+  }
 
   // Below this the whole list is already on screen, so the strip would only
   // take a bite out of the width and jump the page about when tapped.
@@ -111,18 +136,39 @@ export function renderCustomers(root) {
     page.classList.add('alpha-gutter');
   }
 
+  // The headings have to follow the filter whether or not there is a strip
+  // beside them — they are part of the list, not part of the index.
+  const sync = (narrowing) => {
+    const live = syncHeadings(sections);
+    if (index) index.sync(live, narrowing);
+  };
+
   attachSearch(page, {
     placeholder: 'Search name, address or phone',
     rows: searchable,
     emptyText: 'No customer matches that.',
     tags,
     alsoHide: dueCard,
-    afterApply: index ? index.sync : null,
+    afterApply: sync,
   });
-  if (index) index.sync(false);
+  sync(false);
+}
+
+// Searching hides rows one at a time, which a heading cannot see. Returns the
+// letters that still have somebody under them, for the strip to dim the rest.
+function syncHeadings(sections) {
+  const live = new Set();
+  sections.forEach(({ head, rows }, letter) => {
+    const any = rows.some((row) => !row.hidden);
+    head.hidden = !any;
+    if (any) live.add(letter);
+  });
+  return live;
 }
 
 const INDEX_FROM = 12;
+
+const NO_TERRITORY = 'no-territory';
 
 // Names starting with anything that is not a letter — a number, a company
 // sign, an accent the sort already folded away — group under #, last, the way
@@ -227,14 +273,11 @@ function buildAlphaIndex(page, sections) {
   nav.addEventListener('pointercancel', release);
 
   return {
-    // Searching hides rows one by one, which can empty a letter out or the
-    // whole list; the headings and the strip follow along.
-    sync(narrowing) {
+    // Given the letters still showing, dim the rest. The headings are the
+    // list's own business and have been dealt with by the time this runs.
+    sync(live, narrowing) {
       LETTERS.forEach((letter) => {
-        const section = sections.get(letter);
-        const any = section && section.rows.some((row) => !row.hidden);
-        if (section) section.head.hidden = !any;
-        buttons.get(letter).classList.toggle('empty', !any);
+        buttons.get(letter).classList.toggle('empty', !live.has(letter));
       });
       // Down to a handful of matches there is nothing to jump past.
       nav.hidden = narrowing;

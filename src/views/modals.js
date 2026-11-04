@@ -1244,9 +1244,10 @@ export function openGoalModal(existing, onDone) {
 
 // --- Customer --------------------------------------------------------------
 
-export function openCustomerSheet(customerId) {
+export function openCustomerSheet(customerId, { matchedExisting } = {}) {
   const customer = state.getCustomer(customerId);
   if (!customer) return;
+  const territory = customer.territoryId ? state.getTerritory(customer.territoryId) : null;
   const summary = domain.customerSummary(state.getState(), customerId);
   const [label, tone] = domain.customerStageLabel(state.getState(), customer);
 
@@ -1256,6 +1257,12 @@ export function openCustomerSheet(customerId) {
       <p class="sheet-title">${esc(customer.name)}</p>
       <p class="sheet-sub">${esc(customer.address || 'No address on file')}</p>
       <span class="pill ${tone}" style="margin-bottom:14px">${label}</span>
+      ${
+        matchedExisting
+          ? `<p class="sheet-flag">You already had this address, so the new details
+              were added to the record you had rather than starting a second one.</p>`
+          : ''
+      }
       ${
         due.length
           ? `<div class="due-banner">
@@ -1276,6 +1283,10 @@ export function openCustomerSheet(customerId) {
         ${customer.phone ? detailLine('Phone', esc(customer.phone)) : ''}
         ${customer.email ? detailLine('Email', esc(customer.email)) : ''}
         ${detailLine('Source', esc(customer.source || 'Other'))}
+        ${detailLine(
+          'Territory',
+          territory ? esc(territory.name) : '<span class="muted">Not in one</span>'
+        )}
         ${detailLine('Added', domain.formatDate(customer.createdAt))}
         ${customer.note ? detailNote(esc(customer.note)) : ''}
       </div>
@@ -1378,6 +1389,152 @@ export function openCustomerSheet(customerId) {
   });
 }
 
+// Existing territories as chips, plus New to name one on the spot — you meet
+// the street before you ever decide to work it. "No territory" stays a real
+// choice: a referral from the other side of town belongs to nowhere, and
+// filing it under the nearest street would be a lie told to a map.
+function territoryField(sheet, selector, selectedId) {
+  const row = sheet.querySelector(selector);
+  const newWrap = sheet.querySelector(`${selector}-new`);
+  const newInput = newWrap.querySelector('input');
+  const territories = state.getTerritories();
+
+  let chosen = territories.some((x) => x.id === selectedId) ? selectedId : null;
+  let creating = false;
+
+  const options = [
+    { id: null, label: 'No territory' },
+    ...territories.map((x) => ({ id: x.id, label: x.name })),
+    { id: 'new', label: '+ New' },
+  ];
+
+  const paint = () => {
+    row.querySelectorAll('.chip').forEach((chip) => {
+      const key = chip.dataset.key;
+      const active = creating ? key === 'new' : key === String(chosen);
+      chip.classList.toggle('active', active);
+    });
+    newWrap.hidden = !creating;
+    if (creating) newInput.focus();
+  };
+
+  options.forEach(({ id, label }) => {
+    const chip = document.createElement('button');
+    chip.type = 'button';
+    chip.className = 'chip';
+    chip.dataset.key = String(id);
+    chip.textContent = label;
+    chip.addEventListener('click', () => {
+      creating = id === 'new';
+      if (!creating) chosen = id;
+      paint();
+    });
+    row.appendChild(chip);
+  });
+  paint();
+
+  // Read at save time, not on every keystroke: naming a territory you then
+  // back out of should not leave an empty one behind on the Canvassing screen.
+  return () => {
+    if (!creating) return chosen;
+    const name = newInput.value.trim();
+    if (!name) return chosen;
+    // createTerritory already folds a repeated name into the one you work.
+    return state.createTerritory(name).id;
+  };
+}
+
+function territoryFieldHtml(selector) {
+  const id = selector.replace('#', '');
+  return `
+    <div class="field">
+      <label>Territory</label>
+      <div class="chip-row" id="${id}"></div>
+      <div class="field" id="${id}-new" hidden style="margin:10px 0 0">
+        <input type="text" placeholder="Pinecrest Ave" />
+      </div>
+    </div>
+  `;
+}
+
+// Somebody who never knocked on a door: a referral, a call from the sign on
+// the van, a name taken in the street.
+export function openAddCustomerModal() {
+  openSheet((sheet, close) => {
+    sheet.innerHTML = `
+      <p class="sheet-title">Add customer</p>
+      <p class="sheet-sub">For work that did not come through a door.</p>
+      <div class="field">
+        <label>Name</label>
+        <input type="text" id="n-name" placeholder="Maya Patel" />
+      </div>
+      <div class="field">
+        <label>Address</label>
+        <input type="text" id="n-address" placeholder="123 Pinecrest Ave" />
+      </div>
+      <div class="field">
+        <label>Phone</label>
+        <input type="tel" id="n-phone" inputmode="tel" placeholder="416 555 0199" />
+      </div>
+      <div class="field">
+        <label>Email</label>
+        <input type="email" id="n-email" inputmode="email" placeholder="name@email.com" />
+      </div>
+      <div class="field">
+        <label>Found you through</label>
+        <div class="chip-row" id="n-sources"></div>
+      </div>
+      ${territoryFieldHtml('#n-territory')}
+      <div class="field">
+        <label>Notes</label>
+        <textarea id="n-note" placeholder="Referred by the Vegas at number 41."></textarea>
+      </div>
+      <button class="btn-primary" id="n-save">Add customer</button>
+    `;
+
+    // Not a door knock, by definition — that is what this sheet is for.
+    let source = 'Customer referral';
+    const sources = sheet.querySelector('#n-sources');
+    domain.SOURCES.forEach((option) => {
+      const chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = 'chip' + (option === source ? ' active' : '');
+      chip.textContent = option;
+      chip.addEventListener('click', () => {
+        source = option;
+        sources.querySelectorAll('.chip').forEach((c) => c.classList.remove('active'));
+        chip.classList.add('active');
+      });
+      sources.appendChild(chip);
+    });
+
+    const readTerritory = territoryField(sheet, '#n-territory', null);
+    const nameInput = sheet.querySelector('#n-name');
+    nameInput.focus();
+
+    sheet.querySelector('#n-save').addEventListener('click', () => {
+      const name = nameInput.value.trim();
+      if (!name) {
+        nameInput.focus();
+        return;
+      }
+      const { customer, matchedExisting } = state.createCustomer({
+        name,
+        address: sheet.querySelector('#n-address').value.trim(),
+        phone: sheet.querySelector('#n-phone').value.trim(),
+        email: sheet.querySelector('#n-email').value.trim(),
+        source,
+        territoryId: readTerritory(),
+        note: sheet.querySelector('#n-note').value.trim(),
+      });
+      close();
+      // Either way you are shown the record you ended up with — including when
+      // that address turned out to be somebody you already knew.
+      openCustomerSheet(customer.id, { matchedExisting });
+    });
+  });
+}
+
 export function openEditCustomerModal(customerId) {
   const customer = state.getCustomer(customerId);
   if (!customer) return;
@@ -1405,6 +1562,7 @@ export function openEditCustomerModal(customerId) {
         <label>Found you through</label>
         <div class="chip-row" id="c-sources"></div>
       </div>
+      ${territoryFieldHtml('#c-territory')}
       <div class="field">
         <label>Notes</label>
         <textarea id="c-note" placeholder="Back gate code 4417.">${esc(customer.note || '')}</textarea>
@@ -1432,6 +1590,7 @@ export function openEditCustomerModal(customerId) {
       row.appendChild(chip);
     });
 
+    const readTerritory = territoryField(sheet, '#c-territory', customer.territoryId);
     const nameInput = sheet.querySelector('#c-name');
     sheet.querySelector('#c-save').addEventListener('click', () => {
       const name = nameInput.value.trim();
@@ -1445,6 +1604,7 @@ export function openEditCustomerModal(customerId) {
         email: sheet.querySelector('#c-email').value.trim(),
         address: sheet.querySelector('#c-address').value.trim(),
         source: selected,
+        territoryId: readTerritory(),
         note: sheet.querySelector('#c-note').value.trim(),
       });
       close();

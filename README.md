@@ -211,6 +211,36 @@ for three months without pretending the work was done.
 It surfaces as a **Due again** card at the top of Customers, a banner on the
 customer's own sheet, and a line in the Goal screen's recommendations.
 
+### Adding customers by hand
+
+Most records write themselves — quoting, booking or naming a follow-up at a
+door creates the customer. **Add** on the Customers band covers the rest: a
+referral, a call off the van, a name taken in the street. It goes through the
+same `addCustomer` address matching as the door flows, so adding somebody
+whose address you already have fills the blanks on the record you have rather
+than starting a second one, and says so at the top of the sheet it lands you
+on — "saved" and "you already knew them" are different things to be shown.
+Source defaults to **Customer referral**, since by definition this one did not
+come through a door.
+
+### Territories on a customer
+
+`territoryField` is shared by the add and edit sheets: every territory as a
+chip, **No territory** as a real choice, and **+ New** to name one on the spot
+— you meet a street before you decide to work it. A new name goes through
+`createTerritory`, which folds a repeated name into the one you already work,
+so typing "pinecrest ave" lands on **Pinecrest Ave** rather than making a
+second copy. It is read at **save** time, not per keystroke: naming a
+territory and then backing out of the sheet must not leave an empty one behind
+on Canvassing.
+
+Customers with no territory are findable rather than merely marked: the row
+shows its territory beside the quote count, search matches on the name, and a
+**No territory** chip filters down to exactly the ones still to place. That
+chip is why `attachSearch` rows take `tags` (plural) — a customer sits under
+its stage *and*, until you place it, under that. Rows with a single `tag`
+still work; the Jobs screens pass neither.
+
 ### Season reminders
 
 `#/reminders` turns the repeat list into an afternoon's work: every past

@@ -2108,3 +2108,16 @@ button.service-card {
   padding: 1px 5px;
   color: var(--navy);
 }
+
+/* Said once, at the top of the record you landed on, when what you asked for
+   and what you got are not quite the same thing. */
+.sheet-flag {
+  margin: 0 0 14px;
+  padding: 10px 12px;
+  background: var(--gold-soft);
+  border-radius: var(--radius-sm);
+  font-size: 13.5px;
+  line-height: 1.45;
+  color: var(--ink);
+  font-weight: 600;
+}

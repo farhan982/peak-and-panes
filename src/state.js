@@ -347,6 +347,19 @@ function addCustomer(fields) {
   return customer;
 }
 
+// Manual entry, for work that never came through a door: a referral, a phone
+// call, a name handed to you in the street. It goes through the same address
+// matching as the door flows, so adding somebody you already have gives you
+// back the record you already have rather than a second copy of them. The
+// caller is told which happened, because "saved" and "you already knew them"
+// are different things to be shown.
+export function createCustomer(fields) {
+  const before = state.customers.length;
+  const customer = addCustomer(fields);
+  notify();
+  return { customer, matchedExisting: state.customers.length === before };
+}
+
 // Tapping Text hands the draft to the Messages app; whether it was actually
 // sent is between you and your thumb, so this records that you went that far
 // and nothing stronger. It deliberately does not snooze the repeat — you still

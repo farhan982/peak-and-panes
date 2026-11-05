@@ -234,12 +234,35 @@ second copy. It is read at **save** time, not per keystroke: naming a
 territory and then backing out of the sheet must not leave an empty one behind
 on Canvassing.
 
+Territory is not just a label on the customer: **territory revenue is read off
+the jobs**, so changing a customer's territory carries their jobs and quotes
+with them, and the sheet says how many will move before it happens. Doors stay
+where they are — those record where you physically knocked, which did not
+change. New work inherits the customer's territory at creation, so a job
+phoned in by somebody already on a street is not invisible to the Territories
+screen.
+
 Customers with no territory are findable rather than merely marked: the row
 shows its territory beside the quote count, search matches on the name, and a
 **No territory** chip filters down to exactly the ones still to place. That
 chip is why `attachSearch` rows take `tags` (plural) — a customer sits under
 its stage *and*, until you place it, under that. Rows with a single `tag`
 still work; the Jobs screens pass neither.
+
+### Rescheduling
+
+Pushing a date is the most common edit there is — leaves that have not fallen,
+a week of rain — so it has its own sheet rather than making you walk the whole
+job form to move one field. **Move** sits on each upcoming row and opens it
+directly; the job sheet offers it too. Quick chips push by a day, a week, two
+weeks or a month **from the date it is currently on**, and they write into the
+date field rather than saving outright, so the new date can be read and nudged
+before it is committed. The time of day is kept: a 9am job pushed a week is
+still a 9am job.
+
+A row carrying a button can no longer *be* a button, so upcoming rows are a
+`div` wrapping a `.row-tap`; completed rows stay plain buttons and get no
+Move, since there is nothing left to move.
 
 ### Season reminders
 
@@ -361,6 +384,28 @@ always did, and the extra taps only appear when two things are genuinely sold. T
 `amount` total, so every screen that predates this keeps working untouched. A
 single service stores no `lines` at all, leaving those records exactly the
 shape they have always had.
+
+### What can be bundled
+
+`BUNDLEABLE` is windows and eaves — the same visit with the same ladder up, so
+a deal across them is real work saved. **Painting and odd jobs are their own
+day**, quoted on their own terms; pricing one against the other is not a
+bundle, it is two jobs with the money mixed up, and the per-service revenue
+that comes out the other end is fiction.
+
+Picking them together is still allowed, because at a door you book what you
+book. `splitBookings()` turns the selection into records instead: everything
+bundleable in one, each standalone service in its own. The price box shows
+them in the groups they will be sold in — **Bundled together** with its
+subtotal and deal, **Priced on its own** underneath — and says before you save
+how many entries this is about to become. Two records appearing where one was
+expected is the kind of surprise that gets blamed on the app.
+
+`serviceLinesField` therefore always returns an **array**. The first record is
+the one an edit updates in place; anything after it is a new job or quote on
+the same customer, the same day, the same note. At a door that means **one
+door and two jobs** — the extras go through `createJobForCustomer`, never
+through `logBooked` again, or one knock would count as two.
 
 ### Bundle deals
 

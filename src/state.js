@@ -374,8 +374,32 @@ export function markReminded(customerId) {
 export function updateCustomer(customerId, fields) {
   const customer = getCustomer(customerId);
   if (!customer) return;
+  const moved =
+    Object.prototype.hasOwnProperty.call(fields, 'territoryId') &&
+    fields.territoryId !== customer.territoryId;
   Object.assign(customer, fields);
+  // Territory revenue is read off the jobs, not off the customer, so putting
+  // somebody on a street has to take their work with them or the Territories
+  // screen keeps reporting the old answer. Doors stay where they are: those
+  // record where you physically knocked, which did not change.
+  if (moved) {
+    state.jobs.forEach((job) => {
+      if (job.customerId === customerId) job.territoryId = fields.territoryId;
+    });
+    state.quotes.forEach((quote) => {
+      if (quote.customerId === customerId) quote.territoryId = fields.territoryId;
+    });
+  }
   notify();
+}
+
+// How many records would move with them, so the sheet can say so before it
+// happens rather than after.
+export function workInTerritoryMove(customerId) {
+  return (
+    state.jobs.filter((j) => j.customerId === customerId).length +
+    state.quotes.filter((q) => q.customerId === customerId).length
+  );
 }
 
 // Quietens a repeat reminder for a while without pretending the work was
@@ -530,7 +554,9 @@ export function createQuoteDirect({ name, phone, address, service, amount, lines
   const quote = {
     id: createId(),
     customerId: customer.id,
-    territoryId: null,
+    // A customer already on a street puts their work on it too, so phoned-in
+    // jobs are not invisible to the Territories screen.
+    territoryId: customer.territoryId || null,
     service,
     amount: amount || 0,
     lines: lines || null,
@@ -542,6 +568,54 @@ export function createQuoteDirect({ name, phone, address, service, amount, lines
   state.quotes.push(quote);
   notify();
   return quote;
+}
+
+// The quote twin of createJobForCustomer: a second quote against somebody
+// already on the books, with no door and no address matching.
+export function createQuoteForCustomer(customerId, { service, amount, lines, followUpDate, note }) {
+  const customer = getCustomer(customerId);
+  if (!customer) return null;
+  const quote = {
+    id: createId(),
+    customerId,
+    territoryId: customer.territoryId || null,
+    service,
+    amount: amount || 0,
+    lines: lines || null,
+    followUpDate: followUpDate || null,
+    note: note || '',
+    status: 'open',
+    createdAt: new Date().toISOString(),
+  };
+  state.quotes.push(quote);
+  notify();
+  return quote;
+}
+
+// Booked straight onto somebody already on the books — a second job this
+// season, the odd job that could not ride along with the eaves. No address
+// matching: you picked this customer, so it is this customer.
+export function createJobForCustomer(customerId, { service, amount, lines, scheduledAt, note }) {
+  const customer = getCustomer(customerId);
+  if (!customer) return null;
+  const job = {
+    id: createId(),
+    customerId,
+    territoryId: customer.territoryId || null,
+    service,
+    amount: amount || 0,
+    lines: lines || null,
+    scheduledAt: scheduledAt || null,
+    note: note || '',
+    status: 'scheduled',
+    paymentReceived: false,
+    paymentMethod: null,
+    createdAt: new Date().toISOString(),
+  };
+  state.jobs.push(job);
+  if (customer.status === 'lead' || customer.status === 'quote_sent') customer.status = 'booked';
+  notify();
+  return job;
 }
 
 export function createJobDirect({ name, phone, email, address, service, amount, lines, scheduledAt, note, source }) {
@@ -557,7 +631,7 @@ export function createJobDirect({ name, phone, email, address, service, amount, 
   const job = {
     id: createId(),
     customerId: customer.id,
-    territoryId: null,
+    territoryId: customer.territoryId || null,
     service,
     amount: amount || 0,
     lines: lines || null,

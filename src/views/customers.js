@@ -144,7 +144,7 @@ export function renderCustomers(root) {
   };
 
   attachSearch(page, {
-    placeholder: 'Search name, address or phone',
+    placeholder: 'Search name, address or territory',
     rows: searchable,
     emptyText: 'No customer matches that.',
     tags,

@@ -56,8 +56,14 @@ function serviceLinesField(sheet, chipSelector, priceSelector, initial, initialT
       value ? value : ''
     }" /></div>`;
 
-  const subtotal = () => domain.linesTotal(selected);
+  // A deal is struck across the bundleable services only — painting and odd
+  // jobs are their own job, and their price is their own.
+  const bundled = () => selected.filter((l) => domain.canBundle(l.service));
+  const solo = () => selected.filter((l) => !domain.canBundle(l.service));
+  const subtotal = () => domain.linesTotal(bundled());
   const payable = () => (agreed === null ? subtotal() : Math.max(0, agreed));
+  // How many records this selection will save as.
+  const recordCount = () => (bundled().length ? 1 : 0) + solo().length;
 
   // Only treat a saved total as a deal when it actually differs from what the
   // services add up to; otherwise the field stays empty.
@@ -70,6 +76,21 @@ function serviceLinesField(sheet, chipSelector, priceSelector, initial, initialT
     return gap > 0
       ? `<span class="deal-off">${domain.formatCurrency(gap)} off the list price</span>`
       : `<span class="deal-up">${domain.formatCurrency(-gap)} above list price</span>`;
+  }
+
+  // Said plainly before saving, because two records appearing where one was
+  // expected is the kind of surprise that gets blamed on the app.
+  function splitNote() {
+    if (recordCount() < 2) return '';
+    const names = [];
+    if (bundled().length) names.push(domain.formatServiceSummary(bundled()));
+    solo().forEach((l) => names.push(l.service));
+    const last = names.pop();
+    return (
+      `<p class="deal-split">Saves as ${domain.plural(names.length + 1, 'separate entry', 'separate entries')}: ` +
+      `${esc(names.join(', '))} and ${esc(last)}. Painting and odd jobs are their own ` +
+      `visit, so they are priced on their own rather than folded into a deal.</p>`
+    );
   }
 
   function refreshTotals() {
@@ -106,24 +127,34 @@ function serviceLinesField(sheet, chipSelector, priceSelector, initial, initialT
     if (selected.length === 1) {
       priceBox.innerHTML = `<label>Price</label>${priceInput('sl-0', selected[0].amount)}`;
     } else {
-      priceBox.innerHTML =
-        '<label>Price per service</label>' +
-        selected
-          .map(
-            (line, i) =>
-              `<div class="line-row"><span class="line-name">${esc(line.service)}</span>${priceInput(
-                `sl-${i}`,
-                line.amount
-              )}</div>`
-          )
-          .join('') +
-        `<div class="line-row line-sub"><span class="line-name">Subtotal</span>` +
-        `<strong id="sl-subtotal">${domain.formatCurrency(subtotal())}</strong></div>` +
-        `<div class="line-row line-total"><span class="line-name">Bundle deal</span>` +
-        `<div class="input-prefix"><span class="prefix-symbol">${symbol}</span>` +
-        `<input type="number" id="sl-total" inputmode="decimal" min="0" step="1" ` +
-        `placeholder="${subtotal() || ''}" value="${agreed === null ? '' : agreed}" /></div></div>` +
-        `<p class="deal-note" id="sl-deal">${dealText()}</p>`;
+      // Priced in the groups they will actually be sold in: the bundle with
+      // its subtotal and deal, then each standalone job under its own heading.
+      const row = (line) =>
+        `<div class="line-row"><span class="line-name">${esc(line.service)}</span>${priceInput(
+          `sl-${selected.indexOf(line)}`,
+          line.amount
+        )}</div>`;
+
+      let html = '';
+      if (bundled().length) {
+        html +=
+          `<label>${solo().length ? 'Bundled together' : 'Price per service'}</label>` +
+          bundled().map(row).join('');
+        if (bundled().length > 1) {
+          html +=
+            `<div class="line-row line-sub"><span class="line-name">Subtotal</span>` +
+            `<strong id="sl-subtotal">${domain.formatCurrency(subtotal())}</strong></div>` +
+            `<div class="line-row line-total"><span class="line-name">Bundle deal</span>` +
+            `<div class="input-prefix"><span class="prefix-symbol">${symbol}</span>` +
+            `<input type="number" id="sl-total" inputmode="decimal" min="0" step="1" ` +
+            `placeholder="${subtotal() || ''}" value="${agreed === null ? '' : agreed}" /></div></div>` +
+            `<p class="deal-note" id="sl-deal">${dealText()}</p>`;
+        }
+      }
+      if (solo().length) {
+        html += `<label class="line-group">Priced on its own</label>` + solo().map(row).join('');
+      }
+      priceBox.innerHTML = html + splitNote();
     }
 
     selected.forEach((line, i) => {
@@ -153,14 +184,11 @@ function serviceLinesField(sheet, chipSelector, priceSelector, initial, initialT
 
   draw();
 
+  // Always an array. The first record is the one an edit updates in place;
+  // anything after it is a separate job or quote the caller has to create.
   return () => {
     const lines = selected.map((l) => ({ service: l.service, amount: l.amount || 0 }));
-    return {
-      service: domain.formatServiceSummary(lines),
-      // Lines keep list prices; the total is what was actually agreed.
-      amount: lines.length > 1 ? payable() : domain.linesTotal(lines),
-      lines: lines.length > 1 ? lines : null,
-    };
+    return domain.splitBookings(lines, agreed === null ? null : payable());
   };
 }
 
@@ -251,19 +279,26 @@ export function openQuoteModal({ sessionId, territoryId, address }, onDone) {
         nameInput.focus();
         return;
       }
-      const picked = getServices();
-      state.logQuoteGiven({
+      // One door, however many quotes come out of it: the extras are logged
+      // against the same customer rather than as extra doors knocked.
+      const [main, ...extras] = getServices();
+      const followUpDate = sheet.querySelector('#q-followup').value || null;
+      const note = sheet.querySelector('#q-note').value.trim();
+      const { customer } = state.logQuoteGiven({
         sessionId,
         territoryId,
         address,
         name,
         phone: sheet.querySelector('#q-phone').value.trim(),
-        service: picked.service,
-        amount: picked.amount,
-        lines: picked.lines,
-        followUpDate: sheet.querySelector('#q-followup').value || null,
-        note: sheet.querySelector('#q-note').value.trim(),
+        service: main.service,
+        amount: main.amount,
+        lines: main.lines,
+        followUpDate,
+        note,
       });
+      extras.forEach((extra) =>
+        state.createQuoteForCustomer(customer.id, { ...extra, followUpDate, note })
+      );
       close();
       if (onDone) onDone();
     });
@@ -316,21 +351,26 @@ export function openBookedModal({ sessionId, territoryId, address }, onDone) {
         nameInput.focus();
         return;
       }
-      const picked = getServices();
+      const [main, ...extras] = getServices();
       const when = sheet.querySelector('#b-when').value;
-      state.logBooked({
+      const scheduledAt = when ? new Date(when).toISOString() : null;
+      const note = sheet.querySelector('#b-note').value.trim();
+      const { customer } = state.logBooked({
         sessionId,
         territoryId,
         address: sheet.querySelector('#b-address').value.trim() || address,
         name,
         phone: sheet.querySelector('#b-phone').value.trim(),
         email: sheet.querySelector('#b-email').value.trim(),
-        service: picked.service,
-        amount: picked.amount,
-        lines: picked.lines,
-        scheduledAt: when ? new Date(when).toISOString() : null,
-        note: sheet.querySelector('#b-note').value.trim(),
+        service: main.service,
+        amount: main.amount,
+        lines: main.lines,
+        scheduledAt,
+        note,
       });
+      extras.forEach((extra) =>
+        state.createJobForCustomer(customer.id, { ...extra, scheduledAt, note })
+      );
       close();
       if (onDone) onDone();
     });
@@ -547,6 +587,16 @@ export function openJobSheet(jobId) {
       );
     }
 
+    if (!done) {
+      actions.appendChild(
+        button('btn-secondary', 'Reschedule', () => {
+          close();
+          openRescheduleSheet(job.id);
+        })
+      );
+      actions.lastChild.style.marginTop = '10px';
+    }
+
     const secondary = document.createElement('div');
     secondary.className = 'btn-row';
     secondary.style.marginTop = '10px';
@@ -639,20 +689,103 @@ export function openEditJobModal(jobId) {
     `;
     const getServices = serviceLinesField(sheet, '#e-services', '#e-prices', domain.serviceList(job), job.amount);
     sheet.querySelector('#e-save').addEventListener('click', () => {
-      const picked = getServices();
+      // Adding a standalone service to a job that was windows and eaves does
+      // not swallow it into this record — it becomes the separate job it
+      // always had to be, on the same day.
+      const [main, ...extras] = getServices();
       const when = sheet.querySelector('#e-when').value;
       const doneField = sheet.querySelector('#e-done');
+      const scheduledAt = when ? new Date(when).toISOString() : null;
+      const note = sheet.querySelector('#e-note').value.trim();
       state.updateJob(jobId, {
-        service: picked.service,
-        amount: picked.amount,
-        lines: picked.lines,
-        scheduledAt: when ? new Date(when).toISOString() : null,
+        service: main.service,
+        amount: main.amount,
+        lines: main.lines,
+        scheduledAt,
         ...(doneField ? { completedAt: dateToStamp(doneField.value) } : {}),
-        note: sheet.querySelector('#e-note').value.trim(),
+        note,
       });
+      extras.forEach((extra) =>
+        state.createJobForCustomer(job.customerId, { ...extra, scheduledAt, note })
+      );
       close();
     });
   });
+}
+
+// Pushing a date is the most common edit there is — leaves that have not
+// fallen, a week of rain — so it gets its own sheet rather than making you
+// walk through the whole job form to move one field. Keeping the time of day
+// matters: a 9am job pushed a week is still a 9am job.
+export function openRescheduleSheet(jobId) {
+  const job = state.getJobs().find((j) => j.id === jobId);
+  if (!job) return;
+  const customer = state.getCustomer(job.customerId);
+  const from = job.scheduledAt ? new Date(job.scheduledAt) : new Date();
+
+  const shifted = (days) => {
+    const next = new Date(from.getTime());
+    next.setDate(next.getDate() + days);
+    return next;
+  };
+
+  openSheet((sheet, close) => {
+    sheet.innerHTML = `
+      <p class="sheet-title">Reschedule</p>
+      <p class="sheet-sub">${esc(customer ? customer.name : 'Job')} · ${esc(job.service)}</p>
+      <div class="card" style="margin-bottom:14px">
+        ${detailLine(
+          'Currently',
+          job.scheduledAt ? domain.formatDateTime(job.scheduledAt) : 'Not scheduled'
+        )}
+      </div>
+      <div class="field">
+        <label>Push it</label>
+        <div class="chip-row" id="r-quick"></div>
+      </div>
+      <div class="field">
+        <label>Or pick a date and time</label>
+        <input type="datetime-local" id="r-when" value="${localInputValue(from)}" />
+      </div>
+      <button class="btn-primary" id="r-save">Move the job</button>
+    `;
+
+    const whenInput = sheet.querySelector('#r-when');
+    const quick = sheet.querySelector('#r-quick');
+    [
+      ['A day', 1],
+      ['A week', 7],
+      ['Two weeks', 14],
+      ['A month', 30],
+    ].forEach(([label, days]) => {
+      const chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = 'chip';
+      chip.textContent = label;
+      // The chips write into the date field rather than saving outright, so
+      // the new date can be read, and nudged, before it is committed.
+      chip.addEventListener('click', () => {
+        whenInput.value = localInputValue(shifted(days));
+        quick.querySelectorAll('.chip').forEach((c) => c.classList.remove('active'));
+        chip.classList.add('active');
+      });
+      quick.appendChild(chip);
+    });
+
+    sheet.querySelector('#r-save').addEventListener('click', () => {
+      const value = whenInput.value;
+      state.updateJob(jobId, { scheduledAt: value ? new Date(value).toISOString() : null });
+      close();
+    });
+  });
+}
+
+function localInputValue(date) {
+  const pad = (n) => String(n).padStart(2, '0');
+  return (
+    `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}` +
+    `T${pad(date.getHours())}:${pad(date.getMinutes())}`
+  );
 }
 
 // A job marked complete days later was almost certainly done when it was
@@ -934,15 +1067,19 @@ export function openBookLeadSheet(quoteId) {
       quote.service ? domain.serviceList(quote) : null
     );
     sheet.querySelector('#bl-save').addEventListener('click', () => {
-      const picked = getServices();
+      const [main, ...extras] = getServices();
       const when = sheet.querySelector('#bl-when').value;
+      const scheduledAt = when ? new Date(when).toISOString() : null;
       // Price the quote first so the job it creates carries the breakdown.
       state.updateQuote(quoteId, {
-        service: picked.service,
-        amount: picked.amount,
-        lines: picked.lines,
+        service: main.service,
+        amount: main.amount,
+        lines: main.lines,
       });
-      state.acceptQuote(quoteId, when ? new Date(when).toISOString() : null);
+      state.acceptQuote(quoteId, scheduledAt);
+      extras.forEach((extra) =>
+        state.createJobForCustomer(quote.customerId, { ...extra, scheduledAt })
+      );
       close();
     });
   });
@@ -972,14 +1109,19 @@ export function openEditQuoteModal(quoteId) {
     `;
     const getServices = serviceLinesField(sheet, '#eq-services', '#eq-prices', domain.serviceList(quote), quote.amount);
     sheet.querySelector('#eq-save').addEventListener('click', () => {
-      const picked = getServices();
+      const [main, ...extras] = getServices();
+      const followUpDate = sheet.querySelector('#eq-followup').value || null;
+      const note = sheet.querySelector('#eq-note').value.trim();
       state.updateQuote(quoteId, {
-        service: picked.service,
-        amount: picked.amount,
-        lines: picked.lines,
-        followUpDate: sheet.querySelector('#eq-followup').value || null,
-        note: sheet.querySelector('#eq-note').value.trim(),
+        service: main.service,
+        amount: main.amount,
+        lines: main.lines,
+        followUpDate,
+        note,
       });
+      extras.forEach((extra) =>
+        state.createQuoteForCustomer(quote.customerId, { ...extra, followUpDate, note })
+      );
       close();
     });
   });
@@ -1031,29 +1173,44 @@ export function openNewQuoteModal(onDone) {
         nameInput.focus();
         return;
       }
-      const picked = getServices();
-      state.createQuoteDirect({
+      const [main, ...extras] = getServices();
+      const followUpDate = sheet.querySelector('#n-followup').value || null;
+      const note = sheet.querySelector('#n-note').value.trim();
+      const quote = state.createQuoteDirect({
         name,
         phone: sheet.querySelector('#n-phone').value.trim(),
         address: sheet.querySelector('#n-address').value.trim(),
-        service: picked.service,
-        amount: picked.amount,
-        lines: picked.lines,
-        followUpDate: sheet.querySelector('#n-followup').value || null,
-        note: sheet.querySelector('#n-note').value.trim(),
+        service: main.service,
+        amount: main.amount,
+        lines: main.lines,
+        followUpDate,
+        note,
       });
+      extras.forEach((extra) =>
+        state.createQuoteForCustomer(quote.customerId, { ...extra, followUpDate, note })
+      );
       close();
       if (onDone) onDone();
     });
   });
 }
 
-export function openNewJobModal(onDone) {
+// `customer` books onto somebody already on the books — a second job this
+// season, or the odd job that could not ride along with the eaves. Their
+// details are already theirs, so the form drops to just the work.
+export function openNewJobModal(onDone, customer) {
   openSheet((sheet, close) => {
     sheet.innerHTML = `
       <p class="sheet-title">Add job</p>
-      <p class="sheet-sub">Straight onto the schedule.</p>
-      <div class="field">
+      <p class="sheet-sub">${
+        customer
+          ? `For ${esc(customer.name)}${customer.address ? ` · ${esc(customer.address)}` : ''}.`
+          : 'Straight onto the schedule.'
+      }</p>
+      ${
+        customer
+          ? ''
+          : `<div class="field">
         <label>Customer name</label>
         <input type="text" id="n-name" placeholder="Michael Thompson" />
       </div>
@@ -1064,7 +1221,8 @@ export function openNewJobModal(onDone) {
       <div class="field">
         <label>Address</label>
         <input type="text" id="n-address" placeholder="45 Oakridge Dr" />
-      </div>
+      </div>`
+      }
       <div class="field">
         <label>Service &mdash; tap more than one to price them separately</label>
         <div class="chip-row" id="n-services"></div>
@@ -1134,31 +1292,41 @@ export function openNewJobModal(onDone) {
     drawMode();
 
     sheet.querySelector('#n-save').addEventListener('click', () => {
-      const name = nameInput.value.trim();
+      const name = customer ? customer.name : nameInput.value.trim();
       if (!name) {
-        nameInput.focus();
+        if (nameInput) nameInput.focus();
         return;
       }
-      const picked = getServices();
+      const [main, ...extras] = getServices();
       const note = sheet.querySelector('#n-note').value.trim();
-      const base = {
-        name,
-        phone: sheet.querySelector('#n-phone').value.trim(),
-        address: sheet.querySelector('#n-address').value.trim(),
-        service: picked.service,
-        amount: picked.amount,
-        lines: picked.lines,
-        note,
-      };
+      const done = mode === 'done';
+      const when = done ? null : sheet.querySelector('#n-when').value;
+      const stamp = done
+        ? dateToStamp(sheet.querySelector('#n-done').value)
+        : when
+          ? new Date(when).toISOString()
+          : null;
 
-      if (mode === 'done') {
-        const stamp = dateToStamp(sheet.querySelector('#n-done').value);
-        const job = state.createJobDirect({ ...base, scheduledAt: stamp });
-        state.completeJob(job.id, { ...getPayment(), completedAt: stamp });
-      } else {
-        const when = sheet.querySelector('#n-when').value;
-        state.createJobDirect({ ...base, scheduledAt: when ? new Date(when).toISOString() : null });
-      }
+      const make = (record) =>
+        customer
+          ? state.createJobForCustomer(customer.id, { ...record, scheduledAt: stamp, note })
+          : state.createJobDirect({
+              name,
+              phone: sheet.querySelector('#n-phone').value.trim(),
+              address: sheet.querySelector('#n-address').value.trim(),
+              ...record,
+              scheduledAt: stamp,
+              note,
+            });
+
+      // One record per service group, and work already done is marked
+      // complete record by record so the payment lands on each of them rather
+      // than on whichever happened to be created first.
+      const payment = done ? getPayment() : null;
+      [main, ...extras].forEach((record) => {
+        const job = make(record);
+        if (done && job) state.completeJob(job.id, { ...payment, completedAt: stamp });
+      });
       close();
       if (onDone) onDone();
     });
@@ -1291,7 +1459,8 @@ export function openCustomerSheet(customerId, { matchedExisting } = {}) {
         ${customer.note ? detailNote(esc(customer.note)) : ''}
       </div>
       <div id="cust-history"></div>
-      <button class="btn-secondary" id="cust-edit">Edit customer</button>
+      <button class="btn-primary" id="cust-job">Add job</button>
+      <button class="btn-secondary" id="cust-edit" style="margin-top:10px">Edit customer</button>
       <button class="btn-danger" id="cust-delete" style="margin-top:10px">Delete customer</button>
     `;
 
@@ -1357,6 +1526,12 @@ export function openCustomerSheet(customerId, { matchedExisting } = {}) {
       });
     }
 
+    sheet.querySelector('#cust-job').addEventListener('click', () => {
+      close();
+      // Re-read rather than closing over the record: the sheet may have been
+      // open while something else changed them.
+      openNewJobModal(() => openCustomerSheet(customerId), state.getCustomer(customerId));
+    });
     sheet.querySelector('#cust-edit').addEventListener('click', () => {
       close();
       openEditCustomerModal(customerId);
@@ -1393,11 +1568,18 @@ export function openCustomerSheet(customerId, { matchedExisting } = {}) {
 // the street before you ever decide to work it. "No territory" stays a real
 // choice: a referral from the other side of town belongs to nowhere, and
 // filing it under the nearest street would be a lie told to a map.
-function territoryField(sheet, selector, selectedId) {
+function territoryField(sheet, selector, selectedId, { note } = {}) {
   const row = sheet.querySelector(selector);
   const newWrap = sheet.querySelector(`${selector}-new`);
   const newInput = newWrap.querySelector('input');
   const territories = state.getTerritories();
+
+  if (note) {
+    const hint = document.createElement('p');
+    hint.className = 'field-hint';
+    hint.textContent = `Moving them moves their ${domain.plural(note, 'quote or job', 'quotes and jobs')} too, so the Territories screen counts the work where it now belongs.`;
+    newWrap.parentNode.insertBefore(hint, newWrap.nextSibling);
+  }
 
   let chosen = territories.some((x) => x.id === selectedId) ? selectedId : null;
   let creating = false;
@@ -1590,7 +1772,11 @@ export function openEditCustomerModal(customerId) {
       row.appendChild(chip);
     });
 
-    const readTerritory = territoryField(sheet, '#c-territory', customer.territoryId);
+    const readTerritory = territoryField(sheet, '#c-territory', customer.territoryId, {
+      // Territory revenue is read off the jobs, so moving somebody moves
+      // their work. Said before it happens, not after.
+      note: state.workInTerritoryMove(customerId),
+    });
     const nameInput = sheet.querySelector('#c-name');
     sheet.querySelector('#c-save').addEventListener('click', () => {
       const name = nameInput.value.trim();

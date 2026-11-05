@@ -2121,3 +2121,53 @@ button.service-card {
   color: var(--ink);
   font-weight: 600;
 }
+
+/* --- Split bookings, reschedule, field hints ------------------------------ */
+
+/* A second heading inside the price box, where the standalone services start. */
+.line-group {
+  display: block;
+  margin-top: 14px;
+}
+
+/* Said before saving, because two records appearing where one was expected is
+   the kind of surprise that gets blamed on the app. */
+.deal-split {
+  margin: 12px 0 0;
+  padding: 10px 12px;
+  background: var(--gold-soft);
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  line-height: 1.45;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.field-hint {
+  margin: 10px 0 0;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
+/* A row that is no longer itself a button, because it carries one. */
+.row-tap {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+  padding: 0;
+}
+
+.row-later {
+  flex: none;
+  align-self: stretch;
+  padding: 0 12px;
+  margin: -14px -14px -14px 2px;
+  border-left: 1px solid var(--line);
+  font-size: 12.5px;
+  font-weight: 750;
+  color: var(--blue);
+}

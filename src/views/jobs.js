@@ -3,7 +3,7 @@ import * as domain from '../domain.js';
 import { icon } from '../icons.js';
 import { todayISO } from '../storage.js';
 import { buildScreen } from './header.js';
-import { esc, openJobSheet, openQuoteSheet } from './modals.js';
+import { esc, openJobSheet, openQuoteSheet, openRescheduleSheet } from './modals.js';
 import { attachSearch } from './search.js';
 import { setMapFilter, buildMapPanel, filterPoints } from './map.js';
 
@@ -125,10 +125,18 @@ function renderJobList(page, which) {
   jobs.forEach((job) => {
     const customer = state.getCustomer(job.customerId);
     const done = job.status === 'completed';
-    const row = document.createElement('button');
+    // A job still to do gets a reschedule button beside it, which means the
+    // row can no longer be one big button — a button inside a button is not
+    // something a browser will lay out.
+    const row = document.createElement(done ? 'button' : 'div');
     row.className = 'row';
-    row.addEventListener('click', () => openJobSheet(job.id));
-    row.innerHTML = `
+    const main = done ? row : document.createElement('button');
+    if (done) row.addEventListener('click', () => openJobSheet(job.id));
+    else {
+      main.className = 'row-tap';
+      main.addEventListener('click', () => openJobSheet(job.id));
+    }
+    main.innerHTML = `
       <span class="status-dot${done ? ' hollow' : ''}"></span>
       <div class="row-main">
         <p class="row-title">${esc(customer ? customer.name : 'Customer')}</p>
@@ -143,6 +151,15 @@ function renderJobList(page, which) {
         <p class="row-sub">${job.scheduledAt ? domain.formatDateTime(job.scheduledAt) : 'Unscheduled'}</p>
       </div>
     `;
+    if (!done) {
+      row.appendChild(main);
+      const later = document.createElement('button');
+      later.className = 'row-later';
+      later.textContent = 'Move';
+      later.setAttribute('aria-label', 'Reschedule this job');
+      later.addEventListener('click', () => openRescheduleSheet(job.id));
+      row.appendChild(later);
+    }
     page.appendChild(row);
     searchable.push({
       el: row,

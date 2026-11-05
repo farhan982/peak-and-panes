@@ -32,6 +32,43 @@ export const SERVICES = [
   'Odd Job',
 ];
 
+// What can be sold as one price. Windows and eaves are the same visit with the
+// same ladder up, so a deal across them is real work saved. Painting and odd
+// jobs are their own day, quoted on their own terms — pricing one against the
+// other is not a bundle, it is two jobs with the money mixed up. Picking both
+// is allowed; it saves as separate records rather than one.
+export const BUNDLEABLE = ['Exterior Windows', 'Interior Windows', 'Eaves'];
+
+export function canBundle(service) {
+  return BUNDLEABLE.includes(service);
+}
+
+// How a selection of services becomes records: everything bundleable in one,
+// and each standalone service on its own. `agreed` is the deal struck across
+// the bundle and belongs only to it.
+export function splitBookings(lines, agreed) {
+  const bundle = lines.filter((l) => canBundle(l.service));
+  const solo = lines.filter((l) => !canBundle(l.service));
+  const records = [];
+
+  if (bundle.length) {
+    const subtotal = linesTotal(bundle);
+    records.push({
+      service: formatServiceSummary(bundle),
+      // A deal only exists across two or more; one service is simply priced.
+      amount: bundle.length > 1 && typeof agreed === 'number' ? Math.max(0, agreed) : subtotal,
+      lines: bundle.length > 1 ? bundle.map((l) => ({ ...l })) : null,
+    });
+  }
+  solo.forEach((line) => {
+    records.push({ service: line.service, amount: line.amount || 0, lines: null });
+  });
+
+  // Nothing selected should still hand back something shaped like a record.
+  if (!records.length) records.push({ service: lines[0] ? lines[0].service : 'Other', amount: 0, lines: null });
+  return records;
+}
+
 // A door counts as "answered" whenever somebody actually came to the door.
 const ANSWERED = ['not_interested', 'interested', 'follow_up', 'quote_given', 'booked'];
 

@@ -264,6 +264,25 @@ A row carrying a button can no longer *be* a button, so upcoming rows are a
 `div` wrapping a `.row-tap`; completed rows stay plain buttons and get no
 Move, since there is nothing left to move.
 
+### What can be done when
+
+`repeatInterval` says when work comes round again; `SERVICE_SEASON` says
+whether it can actually be done. Outdoor work stops once it freezes — exterior
+windows April to November, eaves April to **December**, since the last eaves
+clean of the year comes after the leaves do. Interior windows and painting
+have no window at all: inside work is what fills a Toronto winter.
+
+Without this, a six-month interval landing in January is a date on a calendar
+rather than a job anybody can do, and the reminders screen spends the winter
+telling you to text people about their outside windows.
+
+Due is therefore not the same as doable. `repeatDue` keeps everything and
+flags each entry `inSeason`, with `opensIn` naming the month it comes back.
+`repeatDueNow` is what the Due again card, the dashboard nudge and the
+reminders list use; `repeatHolding` is the rest, shown as **Waiting on the
+weather** rather than dropped — a quiet winter should read as the season it is,
+not as a list that has dried up.
+
 ### Season reminders
 
 `#/reminders` turns the repeat list into an afternoon's work: every past

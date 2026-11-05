@@ -14,6 +14,7 @@ export function renderReminders(root) {
   const settings = state.getSettings();
   const now = new Date();
   const list = domain.reminders(s, settings, now);
+  const holding = domain.repeatHolding(s, now);
 
   const page = buildScreen(root, {
     title: `${domain.season(now)} reminders`,
@@ -28,13 +29,20 @@ export function renderReminders(root) {
     card.innerHTML = `
       <div class="stub">
         <div class="stub-icon">${icon('people', 26)}</div>
-        <h2>Nothing to chase</h2>
-        <p>This fills up from <strong>Due again</strong>: a past customer whose
-          work is older than its repeat interval — windows every six months,
-          eaves before each autumn. Finish some jobs and they land here.</p>
+        <h2>${holding.length ? 'Nothing to chase yet' : 'Nothing to chase'}</h2>
+        <p>${
+          holding.length
+            ? `${domain.plural(holding.length, 'past customer is', 'past customers are')} due
+               again, but for outside work that cannot be done at this time of year.
+               They come back here when the weather does.`
+            : `This fills up from <strong>Due again</strong>: a past customer whose
+               work is older than its repeat interval — windows every six months,
+               eaves before each autumn. Finish some jobs and they land here.`
+        }</p>
       </div>
     `;
     page.appendChild(card);
+    if (holding.length) page.appendChild(buildHoldingCard(holding));
     return;
   }
 
@@ -46,6 +54,44 @@ export function renderReminders(root) {
   list.forEach((entry) => {
     page.appendChild(buildRow(entry));
   });
+
+  if (holding.length) page.appendChild(buildHoldingCard(holding));
+}
+
+// Due, but not doable. Shown rather than hidden, so a quiet winter reads as
+// the season it is rather than as a list that has dried up.
+function buildHoldingCard(holding) {
+  const months = [...new Set(holding.map((entry) => entry.opensIn))].filter(Boolean);
+  const card = document.createElement('div');
+  card.className = 'card';
+  card.innerHTML = `
+    <p class="card-title" style="margin-bottom:4px">Waiting on the weather</p>
+    <p class="card-sub">${domain.plural(holding.length, 'past customer is', 'past customers are')}
+      due for outside work that cannot be done yet${
+        months.length === 1 ? `. Back from ${esc(months[0])}` : ''
+      }.</p>
+  `;
+  holding.slice(0, 6).forEach((entry) => {
+    const row = document.createElement('button');
+    row.className = 'agenda-row';
+    row.innerHTML = `
+      <span class="agenda-main">
+        <span class="agenda-title">${esc(entry.customer.name)}</span>
+        <span class="agenda-sub">${esc(entry.service)} · ${domain.plural(entry.months, 'month')} ago</span>
+      </span>
+      <span class="agenda-action">${esc(entry.opensIn || 'Later')}</span>
+    `;
+    row.addEventListener('click', () => openCustomerSheet(entry.customer.id));
+    card.appendChild(row);
+  });
+  if (holding.length > 6) {
+    const more = document.createElement('p');
+    more.className = 'card-sub';
+    more.style.marginTop = '10px';
+    more.textContent = `and ${holding.length - 6} more.`;
+    card.appendChild(more);
+  }
+  return card;
 }
 
 function buildMessageCard(sample, list) {

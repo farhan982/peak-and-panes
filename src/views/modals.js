@@ -1437,7 +1437,11 @@ export function openCustomerSheet(customerId, { matchedExisting } = {}) {
               <div class="row-main">
                 <p class="reminder-title">Due again</p>
                 <p class="reminder-body">${due
-                  .map((d) => `${esc(d.service)} — ${domain.plural(d.months, 'month')} ago`)
+                  .map(
+                    (d) =>
+                      `${esc(d.service)} — ${domain.plural(d.months, 'month')} ago` +
+                      (d.inSeason ? '' : ` · not until ${esc(d.opensIn)}`)
+                  )
                   .join('<br>')}</p>
               </div>
               <button class="reminder-dismiss" id="cust-snooze" aria-label="Remind me in three months">&times;</button>

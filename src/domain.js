@@ -639,6 +639,30 @@ export const REPEAT_MONTHS = {
   'Odd Job': null,
 };
 
+// What can actually be done when, here. Outdoor work stops once it freezes,
+// and inside work is what fills a Toronto winter — so a six-month interval
+// landing in January is a date on a calendar, not a job anyone can do. Months
+// are 0-based and the range is inclusive.
+export const SERVICE_SEASON = {
+  'Exterior Windows': [3, 10], // April to November
+  Eaves: [3, 11], // April to December — the last eaves clean comes after the leaves do
+};
+
+export function inSeason(service, now = new Date()) {
+  const window = SERVICE_SEASON[service];
+  if (!window) return true; // inside work, all year round
+  const month = now.getMonth();
+  return month >= window[0] && month <= window[1];
+}
+
+// The month it comes back round, for telling somebody what they are waiting
+// for rather than just hiding the work from them.
+export function seasonOpens(service, now = new Date()) {
+  const window = SERVICE_SEASON[service];
+  if (!window || inSeason(service, now)) return null;
+  return new Date(2000, window[0], 1).toLocaleDateString(undefined, { month: 'long' });
+}
+
 const DEFAULT_REPEAT_MONTHS = 12;
 
 export function repeatInterval(service) {
@@ -696,10 +720,26 @@ export function repeatDue(s, now = new Date()) {
       months,
       interval,
       overdueBy: months - interval,
+      // Due is not the same as doable. Kept on the list rather than dropped,
+      // so a winter does not quietly erase work that is waiting for spring.
+      inSeason: inSeason(entry.service, now),
+      opensIn: seasonOpens(entry.service, now),
     });
   });
 
-  return out.sort((a, b) => b.overdueBy - a.overdueBy || b.months - a.months);
+  return out.sort(
+    (a, b) =>
+      Number(b.inSeason) - Number(a.inSeason) || b.overdueBy - a.overdueBy || b.months - a.months
+  );
+}
+
+// What can be chased today, and what is simply waiting for the weather.
+export function repeatDueNow(s, now = new Date()) {
+  return repeatDue(s, now).filter((entry) => entry.inSeason);
+}
+
+export function repeatHolding(s, now = new Date()) {
+  return repeatDue(s, now).filter((entry) => !entry.inSeason);
 }
 
 // ---------------------------------------------------------------------------
@@ -769,7 +809,7 @@ export function reminders(s, settings, now = new Date()) {
   const template = (settings && settings.reminderTemplate) || DEFAULT_REMINDER;
   const me = (settings && settings.userName) || '';
 
-  return repeatDue(s, now)
+  return repeatDueNow(s, now)
     .map((entry) => {
       const body = reminderText(template, { name: entry.customer.name, service: entry.service, me }, now);
       return {
@@ -1070,7 +1110,7 @@ export function recommendations(s, settings, now = new Date()) {
     });
   }
 
-  const dueAgain = repeatDue(s, now);
+  const dueAgain = repeatDueNow(s, now);
   if (dueAgain.length) {
     out.push({
       icon: 'people',

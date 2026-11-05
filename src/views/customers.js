@@ -49,8 +49,9 @@ export function renderCustomers(root) {
     return;
   }
 
-  const due = domain.repeatDue(s);
-  const dueCard = due.length ? buildDueAgain(due) : null;
+  const due = domain.repeatDueNow(s);
+  const holding = domain.repeatHolding(s);
+  const dueCard = due.length || holding.length ? buildDueAgain(due, holding) : null;
   if (dueCard) page.appendChild(dueCard);
 
   const quotes = s.quotes;
@@ -288,7 +289,7 @@ function buildAlphaIndex(page, sections) {
 
 // Past customers whose work is old enough to be worth offering again. This is
 // the cheapest lead the business has: they have already paid you once.
-function buildDueAgain(due) {
+function buildDueAgain(due, holding) {
   const card = document.createElement('div');
   card.className = 'card';
   card.innerHTML = `
@@ -296,7 +297,11 @@ function buildDueAgain(due) {
       <p class="card-title">Due again</p>
       <span class="pill gold">${due.length}</span>
     </div>
-    <p class="card-sub">Work you have done before, old enough to offer again.</p>
+    <p class="card-sub">${
+      due.length
+        ? 'Work you have done before, old enough to offer again.'
+        : 'Nothing you can do at this time of year.'
+    }</p>
   `;
   due.slice(0, 6).forEach((entry) => {
     const row = document.createElement('button');
@@ -319,13 +324,30 @@ function buildDueAgain(due) {
     card.appendChild(more);
   }
 
-  const text = document.createElement('button');
-  text.className = 'btn-primary';
-  text.style.marginTop = '14px';
-  text.textContent = 'Send season reminders';
-  text.addEventListener('click', () => {
-    location.hash = '#/reminders';
-  });
-  card.appendChild(text);
+  // Work that is due but cannot be done yet is said out loud rather than
+  // silently dropped — otherwise a winter looks like you have run out of
+  // customers.
+  if (holding.length) {
+    const wait = document.createElement('p');
+    wait.className = 'card-sub';
+    wait.style.marginTop = due.length ? '10px' : '4px';
+    const months = [...new Set(holding.map((entry) => entry.opensIn))].filter(Boolean);
+    // "more" does not pluralise, so it is not run through plural().
+    wait.textContent =
+      `${holding.length} more waiting on the weather` +
+      (months.length === 1 ? `, from ${months[0]}.` : '.');
+    card.appendChild(wait);
+  }
+
+  if (due.length) {
+    const text = document.createElement('button');
+    text.className = 'btn-primary';
+    text.style.marginTop = '14px';
+    text.textContent = 'Send season reminders';
+    text.addEventListener('click', () => {
+      location.hash = '#/reminders';
+    });
+    card.appendChild(text);
+  }
   return card;
 }

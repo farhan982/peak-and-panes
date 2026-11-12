@@ -506,7 +506,8 @@ lowering a target can put an already-collected sum over the line.
 ## What is not built yet
 
 - Photos, review and referral prompts on job completion. Editing or deleting a
-  territory. Expenses, and anything that knows about HST.
+  territory. Expenses — the app knows what comes in and nothing about what
+  goes out. Invoices with an HST number on them.
 
 ## Structure
 
@@ -600,6 +601,40 @@ most recent — the way you are walking now.
 The bubbles are painted straight into the DOM rather than through
 `state.refresh()`. The whole app re-renders on a state change, which would
 take the keyboard away mid-address.
+
+## HST
+
+Registration is the one fact the app cannot work out for itself, so it is a
+switch in Settings and it is **off by default** — turning it on is the only
+thing that changes a money figure anywhere.
+
+Once it is on, the question is never whether there is tax in a job, only
+which side of the price it sits on. A registered business that quotes $420
+and says nothing about tax has quoted a **tax-included** price: the CRA's
+share is inside it whatever was said at the door. So:
+
+- **Prices include HST** — the tax is backed out: `amount × r/(1+r)`, which
+  puts $13 inside $113 at 13%, not $14.69. Revenue in the app stays what the
+  customer paid; the set-aside says how much of it is not yours.
+- **Added on top** — `amount × r` on top. The app's revenue figure is the
+  pre-tax price, which is the right number to compare against a goal, and the
+  customer pays more than it says.
+
+The changeover is a **date**, not a flag: `chargingFrom`. Work finished before
+it is tax-included, work finished on or after it has tax on top. A single
+boolean would have rewritten everything already charged the moment the switch
+was flipped, which is the one thing this must not do. Nothing is stored on the
+job records themselves, so the whole scheme can be turned off again.
+
+`taxBreakdown()` is the only place the arithmetic lives, and it returns `net`,
+`tax` and `total` whether registered or not — so callers never have to ask
+first. The dashboard card is a **year to date** figure with the quarter under
+it, because the pot has to survive until a return is filed; tax on completed
+work nobody has paid for yet is named separately rather than folded in, since
+it is not money anybody has. The price box at the door shows what the customer
+actually hands over, which is the number that otherwise gets quoted wrong.
+
+The rate is stored, not hard-coded. It is a government's number to change.
 
 ## One address is one customer
 

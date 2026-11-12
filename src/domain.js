@@ -1111,6 +1111,89 @@ export function weekSummary(s, now = new Date()) {
 }
 
 // ---------------------------------------------------------------------------
+// HST
+// ---------------------------------------------------------------------------
+
+// Ontario. A rate is stored anyway rather than hard-coded, because the number
+// is a government's to change and nobody should need a new build when it does.
+export const DEFAULT_HST_RATE = 13;
+
+export function hstSettings(settings) {
+  const hst = (settings && settings.hst) || {};
+  return {
+    registered: Boolean(hst.registered),
+    rate: typeof hst.rate === 'number' && hst.rate >= 0 ? hst.rate : DEFAULT_HST_RATE,
+    // A day. Empty means prices are still quoted with the tax inside them.
+    chargingFrom: hst.chargingFrom || '',
+  };
+}
+
+// Once registered, a price with no tax named on it is a tax-INCLUDED price —
+// the share still belongs to the CRA whatever was said at the door. So the
+// question is never whether there is tax in a job, only which side of the
+// price it sits on, and that is decided by the day the work was done.
+export function taxOnTop(iso, settings) {
+  const hst = hstSettings(settings);
+  if (!hst.registered || !hst.chargingFrom) return false;
+  return String(iso || localDay()).slice(0, 10) >= hst.chargingFrom;
+}
+
+// `net` is what the work earned, `tax` is what is owed on it, `total` is what
+// the customer hands over. Not registered means all three collapse back to
+// the price, so every caller can use this without asking first.
+export function taxBreakdown(amount, iso, settings) {
+  const hst = hstSettings(settings);
+  const value = amount || 0;
+  const base = { registered: hst.registered, rate: hst.rate, onTop: false, tax: 0, net: value, total: value };
+  if (!hst.registered || !value) return base;
+
+  const rate = hst.rate / 100;
+  if (taxOnTop(iso, settings)) {
+    const tax = value * rate;
+    return { ...base, onTop: true, tax, net: value, total: value + tax };
+  }
+  // Backed out of the price: $113 at 13% holds $13 of tax, not $14.69.
+  const tax = value * (rate / (1 + rate));
+  return { ...base, tax, net: value - tax, total: value };
+}
+
+export function startOfYear(now = new Date()) {
+  return new Date(now.getFullYear(), 0, 1);
+}
+
+export function startOfQuarter(now = new Date()) {
+  return new Date(now.getFullYear(), Math.floor(now.getMonth() / 3) * 3, 1);
+}
+
+// What to put aside out of the money already banked. Counted on payments
+// received rather than on work invoiced: that is the money that exists, and
+// it is the only pot the set-aside can actually come out of. Work finished
+// and not yet paid for is reported separately rather than folded in.
+export function taxSetAside(jobs, settings, from, to) {
+  const paid = jobs.filter((j) => j.paymentReceived && withinRange(j.completedAt, from, to));
+  const totals = paid.reduce(
+    (sum, job) => {
+      const tax = taxBreakdown(job.amount, job.completedAt, settings);
+      // `charged` is what the customer handed over, which is more than the
+      // app's revenue figure once tax goes on top — that money is in your
+      // pocket without ever being earnings, and it is what the set-aside
+      // comes out of.
+      return { charged: sum.charged + tax.total, tax: sum.tax + tax.tax, net: sum.net + tax.net };
+    },
+    { charged: 0, tax: 0, net: 0 }
+  );
+  return { ...totals, jobs: paid.length };
+}
+
+// Tax riding on completed work nobody has paid for yet — owed the moment it
+// settles, so it is worth seeing before it arrives.
+export function taxOutstanding(jobs, settings) {
+  return jobs
+    .filter((j) => j.status === 'completed' && !j.paymentReceived)
+    .reduce((sum, j) => sum + taxBreakdown(j.amount, j.completedAt, settings).tax, 0);
+}
+
+// ---------------------------------------------------------------------------
 // Funnel
 // ---------------------------------------------------------------------------
 

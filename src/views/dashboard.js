@@ -35,6 +35,12 @@ export function renderDashboard(root) {
   if (reminder) page.appendChild(buildBackupBanner(reminder));
 
   page.appendChild(buildGoalCard(s, settings, now));
+
+  // Directly under the goal, because the two numbers have to be read
+  // together: a target of money collected is not a target of money kept.
+  const hst = buildHstCard(s, settings, now);
+  if (hst) page.appendChild(hst);
+
   page.appendChild(buildMetrics(s, now));
 
   const today = buildToday(s, now);
@@ -93,6 +99,48 @@ function buildGoalCard(s, settings, now) {
       go();
     }
   });
+  return card;
+}
+
+// Only ever shown once registration is switched on in Settings. The figure is
+// deliberately the year to date rather than the week: the pot has to survive
+// until a return is filed, so a weekly number would be the wrong size of
+// reassurance.
+function buildHstCard(s, settings, now) {
+  if (!domain.hstSettings(settings).registered) return null;
+  const year = domain.taxSetAside(s.jobs, settings, domain.startOfYear(now), domain.endOfToday(now));
+  const quarter = domain.taxSetAside(
+    s.jobs,
+    settings,
+    domain.startOfQuarter(now),
+    domain.endOfToday(now)
+  );
+  const owedLater = domain.taxOutstanding(s.jobs, settings);
+
+  const card = document.createElement('div');
+  card.className = 'card';
+  card.innerHTML = `
+    <div class="card-row">
+      <div>
+        <p class="card-title">HST to set aside</p>
+        <p class="card-sub">${now.getFullYear()} so far · ${domain.formatCurrency(
+          year.charged
+        )} taken in</p>
+      </div>
+      <p class="row-amount" style="font-size:22px">${domain.formatCurrency(year.tax)}</p>
+    </div>
+    <div class="card-row" style="margin-top:10px">
+      <span class="muted" style="font-size:13px">This quarter</span>
+      <strong>${domain.formatCurrency(quarter.tax)}</strong>
+    </div>
+    ${
+      owedLater
+        ? `<p class="card-sub" style="margin-top:8px">${domain.formatCurrency(
+            owedLater
+          )} more once the unpaid jobs settle.</p>`
+        : ''
+    }
+  `;
   return card;
 }
 

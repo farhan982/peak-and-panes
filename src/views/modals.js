@@ -93,6 +93,18 @@ function serviceLinesField(sheet, chipSelector, priceSelector, initial, initialT
     );
   }
 
+  // What the customer is actually told at the door. Only ever appears once
+  // HST is being charged on top — a tax-included price is already the number
+  // they hand over, and saying so twice would just look like a surcharge.
+  function taxNote() {
+    const total = payable() + domain.linesTotal(solo());
+    const tax = domain.taxBreakdown(total, null, state.getSettings());
+    if (!tax.onTop || !tax.tax) return '';
+    return `+${domain.formatCurrency(tax.tax)} HST · they pay <strong>${domain.formatCurrency(
+      tax.total
+    )}</strong>`;
+  }
+
   function refreshTotals() {
     const sub = priceBox.querySelector('#sl-subtotal');
     if (sub) sub.textContent = domain.formatCurrency(subtotal());
@@ -102,6 +114,8 @@ function serviceLinesField(sheet, chipSelector, priceSelector, initial, initialT
     if (dealInput) dealInput.placeholder = String(subtotal() || '');
     const deal = priceBox.querySelector('#sl-deal');
     if (deal) deal.innerHTML = dealText();
+    const tax = priceBox.querySelector('#sl-tax');
+    if (tax) tax.innerHTML = taxNote();
   }
 
   function draw() {
@@ -125,7 +139,9 @@ function serviceLinesField(sheet, chipSelector, priceSelector, initial, initialT
     });
 
     if (selected.length === 1) {
-      priceBox.innerHTML = `<label>Price</label>${priceInput('sl-0', selected[0].amount)}`;
+      priceBox.innerHTML =
+        `<label>Price</label>${priceInput('sl-0', selected[0].amount)}` +
+        `<p class="tax-note" id="sl-tax"></p>`;
     } else {
       // Priced in the groups they will actually be sold in: the bundle with
       // its subtotal and deal, then each standalone job under its own heading.
@@ -154,7 +170,7 @@ function serviceLinesField(sheet, chipSelector, priceSelector, initial, initialT
       if (solo().length) {
         html += `<label class="line-group">Priced on its own</label>` + solo().map(row).join('');
       }
-      priceBox.innerHTML = html + splitNote();
+      priceBox.innerHTML = html + `<p class="tax-note" id="sl-tax"></p>` + splitNote();
     }
 
     selected.forEach((line, i) => {
@@ -180,6 +196,8 @@ function serviceLinesField(sheet, chipSelector, priceSelector, initial, initialT
         refreshTotals();
       });
     }
+
+    refreshTotals();
   }
 
   draw();
@@ -519,6 +537,20 @@ function detailLine(label, value) {
 }
 
 // Free text does not belong in the right-hand column of a label/value row.
+// Silent unless registration is switched on. A tax-included job says what is
+// buried in the price; a job with tax on top says what the customer actually
+// hands over, which is the number that gets quoted wrong.
+function taxLines(job) {
+  const when = job.completedAt || job.scheduledAt || job.createdAt;
+  const tax = domain.taxBreakdown(job.amount, when, state.getSettings());
+  if (!tax.registered || !tax.tax) return '';
+  return tax.onTop
+    ? detailLine(`&nbsp;&nbsp;HST ${tax.rate}% on top`, `+${domain.formatCurrency(tax.tax)}`) +
+        detailLine('Customer pays', domain.formatCurrency(tax.total))
+    : detailLine(`&nbsp;&nbsp;HST ${tax.rate}% inside this`, domain.formatCurrency(tax.tax)) +
+        detailLine('&nbsp;&nbsp;Yours', domain.formatCurrency(tax.net));
+}
+
 function detailNote(value) {
   return `<div style="padding:7px 0"><p class="muted" style="margin:0 0 2px">Notes</p><p style="margin:0;font-weight:600">${value}</p></div>`;
 }
@@ -562,6 +594,7 @@ export function openJobSheet(jobId) {
             : ''
         }
         ${detailLine('Price', domain.formatCurrency(job.amount))}
+        ${taxLines(job)}
         ${detailLine('Scheduled', job.scheduledAt ? domain.formatWhen(job.scheduledAt) : 'Not scheduled')}
         ${done ? detailLine('Completed', domain.formatDate(job.completedAt)) : ''}
         ${done ? detailLine('Payment', job.paymentReceived ? esc(job.paymentMethod) : 'Not received') : ''}

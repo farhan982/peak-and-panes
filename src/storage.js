@@ -178,6 +178,10 @@ const DEFAULT_SETTINGS = {
   // Empty means the stock wording. Kept as the user typed it so editing it
   // never fights a default being re-applied underneath.
   reminderTemplate: '',
+  // Off until it is turned on, so nothing about the money on screen changes
+  // under anybody who has not said they are registered. `chargingFrom` empty
+  // means prices still have the tax inside them.
+  hst: { registered: false, rate: 13, chargingFrom: '' },
 };
 
 export function newGoal({ amount, weeklyTarget, startDate, endDate }) {
@@ -209,6 +213,9 @@ export function loadSettings() {
     const saved = raw ? JSON.parse(raw) : {};
     const settings = { ...DEFAULT_SETTINGS, ...saved };
     if (!Array.isArray(settings.goals)) settings.goals = [];
+    // Spreading only merges the top level, so a stored `hst` written by an
+    // older build keeps whatever fields it has and gains the rest.
+    settings.hst = { ...DEFAULT_SETTINGS.hst, ...(settings.hst || {}) };
 
     // Carry the single fixed goal from before goals were a sequence.
     if (!settings.goals.length) {

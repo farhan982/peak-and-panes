@@ -5,6 +5,7 @@ import { buildScreen } from './header.js';
 import * as geo from '../geo.js';
 import { openGoalModal, esc } from './modals.js';
 import { downloadBackup, restoreFromText, countRecords } from '../backup.js';
+import { todayISO } from '../storage.js';
 
 export function renderSettings(root) {
   const page = buildScreen(root, { title: 'Settings', subtitle: 'Goal, backups and data.' });
@@ -77,6 +78,9 @@ export function renderSettings(root) {
   reset.addEventListener('click', () => state.updateSettings({ reminderTemplate: '' }));
   reminder.appendChild(reset);
   page.appendChild(reminder);
+
+  // --- HST -----------------------------------------------------------------
+  page.appendChild(buildHstCard(settings));
 
   // --- Goals ---------------------------------------------------------------
   const active = domain.activeGoal(settings);
@@ -219,4 +223,99 @@ export function renderSettings(root) {
   });
   danger.appendChild(wipe);
   page.appendChild(danger);
+}
+
+// Registration is the one fact the app cannot work out for itself, and
+// everything else follows from it. Off by default: switching it on is the
+// user saying so, and it is what moves every revenue figure.
+function buildHstCard(settings) {
+  const hst = domain.hstSettings(settings);
+  const card = document.createElement('div');
+  card.className = 'card';
+  card.innerHTML = `
+    <p class="card-title" style="margin-bottom:6px">HST</p>
+    <p class="card-sub" style="margin-bottom:12px">Once you are registered, a price
+      with no tax named on it counts as a price with the tax already inside it —
+      so a share of everything you collect is owed whatever was said at the door.
+      Confirm the details with your accountant; this only does the arithmetic.</p>
+    <div class="chip-row" id="hst-reg"></div>
+    <div id="hst-rest"></div>
+  `;
+
+  const chips = (host, options, current, onPick) => {
+    host.innerHTML = '';
+    options.forEach(([value, label]) => {
+      const chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = 'chip' + (value === current ? ' active' : '');
+      chip.textContent = label;
+      chip.addEventListener('click', () => onPick(value));
+      host.appendChild(chip);
+    });
+  };
+
+  chips(
+    card.querySelector('#hst-reg'),
+    [
+      [false, 'Not registered'],
+      [true, 'Registered'],
+    ],
+    hst.registered,
+    (value) => state.updateSettings({ hst: { ...hst, registered: value } })
+  );
+
+  const rest = card.querySelector('#hst-rest');
+  if (!hst.registered) return card;
+
+  const onTop = Boolean(hst.chargingFrom);
+  rest.innerHTML = `
+    <p class="card-sub" style="margin:4px 0 8px">How your prices are quoted</p>
+    <div class="chip-row" id="hst-mode"></div>
+    ${
+      onTop
+        ? `<div class="field"><label>Charging it on top since</label>
+            <input type="date" id="hst-from" value="${esc(hst.chargingFrom)}" /></div>
+           <p class="card-sub" style="margin:-6px 0 12px">Work finished before this
+             date is treated as tax-included, so switching over does not rewrite
+             what you already charged.</p>`
+        : `<p class="card-sub" style="margin:-6px 0 12px">The tax is being taken back
+            out of each price at ${hst.rate}%, which is what you owe on it.</p>`
+    }
+    <div class="field" style="margin-bottom:0">
+      <label>Rate</label>
+      <div class="input-prefix"><span class="prefix-symbol">%</span>
+        <input type="number" id="hst-rate" inputmode="decimal" min="0" step="0.5" value="${hst.rate}" /></div>
+    </div>
+  `;
+
+  chips(
+    rest.querySelector('#hst-mode'),
+    [
+      ['included', 'Prices include HST'],
+      ['ontop', 'Added on top'],
+    ],
+    onTop ? 'ontop' : 'included',
+    (value) =>
+      state.updateSettings({
+        // Switching on sets today as the changeover, because that is the only
+        // day anybody can start charging it from.
+        hst: { ...hst, chargingFrom: value === 'ontop' ? todayISO() : '' },
+      })
+  );
+
+  const from = rest.querySelector('#hst-from');
+  if (from) {
+    from.addEventListener('change', () => {
+      if (from.value) state.updateSettings({ hst: { ...hst, chargingFrom: from.value } });
+    });
+  }
+
+  const rate = rest.querySelector('#hst-rate');
+  rate.addEventListener('blur', () => {
+    const value = parseFloat(rate.value);
+    const next = isNaN(value) || value < 0 ? domain.DEFAULT_HST_RATE : value;
+    if (next !== hst.rate) state.updateSettings({ hst: { ...hst, rate: next } });
+  });
+
+  return card;
 }

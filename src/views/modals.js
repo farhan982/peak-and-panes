@@ -562,7 +562,7 @@ export function openJobSheet(jobId) {
             : ''
         }
         ${detailLine('Price', domain.formatCurrency(job.amount))}
-        ${detailLine('Scheduled', job.scheduledAt ? domain.formatDateTime(job.scheduledAt) : 'Not scheduled')}
+        ${detailLine('Scheduled', job.scheduledAt ? domain.formatWhen(job.scheduledAt) : 'Not scheduled')}
         ${done ? detailLine('Completed', domain.formatDate(job.completedAt)) : ''}
         ${done ? detailLine('Payment', job.paymentReceived ? esc(job.paymentMethod) : 'Not received') : ''}
         ${job.note ? detailNote(esc(job.note)) : ''}
@@ -736,7 +736,7 @@ export function openRescheduleSheet(jobId) {
       <div class="card" style="margin-bottom:14px">
         ${detailLine(
           'Currently',
-          job.scheduledAt ? domain.formatDateTime(job.scheduledAt) : 'Not scheduled'
+          job.scheduledAt ? domain.formatWhen(job.scheduledAt) : 'Not scheduled'
         )}
       </div>
       <div class="field">
@@ -1906,6 +1906,83 @@ export function openEditTerritoryModal(territoryId) {
       });
       close();
     });
+  });
+}
+
+// --- Week against last week ------------------------------------------------
+
+function compareRow(label, now, then, format = (v) => String(v)) {
+  const delta = now - then;
+  const tone = delta > 0 ? 'green' : delta < 0 ? 'red' : 'muted';
+  const sign = delta > 0 ? '+' : delta < 0 ? '\u2212' : '';
+  return `
+    <div class="compare-row">
+      <span class="compare-name">${label}</span>
+      <span class="compare-now">${format(now)}</span>
+      <span class="compare-then">${format(then)}</span>
+      <span class="compare-diff ${tone}">${delta ? `${sign}${format(Math.abs(delta))}` : '—'}</span>
+    </div>
+  `;
+}
+
+export function openWeekCompareSheet() {
+  const c = domain.weekComparison(state.getState());
+  const a = c.thisWeek;
+  const b = c.lastWeek;
+  const money = (v) => domain.formatCurrency(v);
+  // A week that collected nothing has no percentage to be up or down by, so
+  // the headline says the amount instead of inventing one.
+  const change = b.collected ? (a.collected - b.collected) / b.collected : null;
+  const tone = a.collected === b.collected ? 'muted' : a.collected > b.collected ? 'green' : 'red';
+
+  openSheet((sheet, close) => {
+    sheet.innerHTML = `
+      <p class="sheet-title">This week vs last</p>
+      <p class="sheet-sub">${domain.plural(c.days, 'day')} in, counted against the same
+        ${c.days === 1 ? 'day' : `${c.days} days`} of last week.</p>
+      <div class="compare-head">
+        <div>
+          <p class="compare-cap">This week</p>
+          <p class="compare-big gold">${money(a.collected)}</p>
+        </div>
+        <p class="compare-swing ${tone}">${
+          change === null
+            ? a.collected
+              ? 'first week with takings'
+              : 'nothing in yet'
+            : `${change >= 0 ? '↑' : '↓'} ${domain.formatPercent(Math.abs(change))}`
+        }</p>
+        <div>
+          <p class="compare-cap">Same point last week</p>
+          <p class="compare-big">${money(b.collected)}</p>
+        </div>
+      </div>
+      <div class="card">
+        <div class="compare-row head">
+          <span class="compare-name"></span>
+          <span class="compare-now">This</span>
+          <span class="compare-then">Last</span>
+          <span class="compare-diff"></span>
+        </div>
+        ${compareRow('Collected', a.collected, b.collected, money)}
+        ${compareRow('Jobs finished', a.done, b.done)}
+        ${compareRow('Average job', a.averageJob, b.averageJob, money)}
+        ${compareRow('Jobs booked', a.booked, b.booked)}
+        ${compareRow('Quotes given', a.quotes, b.quotes)}
+        ${compareRow('Doors knocked', a.doors, b.doors)}
+      </div>
+      ${
+        c.complete
+          ? ''
+          : `<p class="card-sub" style="margin:-2px 2px 14px">Last week finished at
+              ${money(c.lastWeekFull.collected)} off ${domain.plural(
+                c.lastWeekFull.done,
+                'job'
+              )}.</p>`
+      }
+      <button class="btn-primary" id="w-done">Done</button>
+    `;
+    sheet.querySelector('#w-done').addEventListener('click', close);
   });
 }
 

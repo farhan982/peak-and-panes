@@ -91,6 +91,25 @@ this week's revenue against last week's, open quotes, jobs booked (with how
 many are done), doors knocked, today's schedule, a **This week** summary card,
 the doors-to-quotes-to-jobs funnel, and four quick actions.
 
+### This week against last
+
+Tapping the revenue tile opens the figures behind it: collected, jobs
+finished, average job, jobs booked, quotes given and doors knocked, this week
+beside last.
+
+The comparison runs to **the same point in last week**, not against the whole
+of it. Three days of this week against seven of last would make every Monday
+look like a collapse, and the tile used to do exactly that — it read "down
+10%" on a week that was in fact 50% up. `weekComparison()` is now the single
+definition of "vs last week" in the app, so the tile and the sheet cannot
+disagree. Last week's finished total is kept as a footnote, because that is
+the number you remember; once it is Sunday the two are the same week and the
+footnote goes.
+
+`rangeStats()` does the counting for any stretch of time, and `weekSummary()`
+is built on it, so the dashboard's week card and the comparison cannot drift
+apart either.
+
 **Add Job can log work that is already finished** — the When row switches
 between *Scheduled* and *Already done*, and the second asks for the date it was
 done and how it was paid, creating the job complete in one step. Without it,
@@ -558,6 +577,30 @@ which writes to storage **without** notifying listeners. That is deliberate: a
 fix landing mid-typing would otherwise re-render and steal focus from the
 address field.
 
+## The numbers up the street
+
+Canvassing is sequential, so the next door is arithmetic rather than a GPS
+problem — that is what `predictNextAddress` has always done. But houses get
+skipped: a number that does not exist, a duplex sharing one, a locked gate, or
+you simply cross the road. One guess is then wrong, and wrong means typing.
+
+`houseSuggestions()` offers five instead, as bubbles under the address field:
+the run ahead in the direction you are already walking, and the house across
+the road last. Anything already knocked on that street this session is
+dropped. With the field empty — you have just come back to the screen — the
+street is taken from the doors behind you, so the numbers are there before a
+word is typed.
+
+Both functions size the step with `streetStep()`, which takes the gap walked
+**most often**, not the last one. Knocking 2, 4 and then jumping to 10 used to
+leave the app convinced the street went up in sixes, and every suggestion
+after it was nonsense. A tie goes to the shorter step, and failing that to the
+most recent — the way you are walking now.
+
+The bubbles are painted straight into the DOM rather than through
+`state.refresh()`. The whole app re-renders on a state change, which would
+take the keyboard away mid-address.
+
 ## One address is one customer
 
 Every door flow used to create a customer outright, so quoting a house and
@@ -587,6 +630,15 @@ from a timestamp, and `toLocalDate()` in `domain.js` is the only way a bare
 west of Greenwich it rolls over in the evening, which is exactly when a day's
 admin gets done. It had put completion-date defaults, follow-up comparisons
 and "overdue" checks a day out, and made a plain date display a day early.
+
+Dates close to the one you are standing in are named rather than numbered.
+`dayWord()` returns Today, Tomorrow or Yesterday for the days either side of
+now and nothing for the rest; `relativeDay()` falls back to a date and
+`formatWhen()` keeps the time of day beside the word, because the time is the
+part you are turning up for. The days are counted off the calendar with
+`setDate`, not by adding 86 400 000 ms, which lands on the wrong day across a
+clock change. An upcoming job whose date has gone past now says **Overdue**
+instead of Scheduled — it was saying the same thing as a job three weeks out.
 
 ## iOS notes
 

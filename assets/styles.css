@@ -2171,3 +2171,146 @@ button.service-card {
   font-weight: 750;
   color: var(--blue);
 }
+
+/* --- House number suggestions -------------------------------------------- */
+
+.house-chips {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-top: 10px;
+}
+
+.house-chips-label {
+  font-size: 12.5px;
+  color: var(--muted);
+  font-weight: 650;
+}
+
+.house-chip {
+  min-width: 42px;
+  padding: 7px 12px;
+  border-radius: 99px;
+  background: var(--blue-soft);
+  color: var(--blue);
+  font-size: 15px;
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
+}
+
+.house-chip:active {
+  transform: scale(0.94);
+}
+
+/* --- This week against last ---------------------------------------------- */
+
+.metric.tappable {
+  cursor: pointer;
+}
+
+.metric.tappable:active {
+  transform: scale(0.98);
+}
+
+.compare-head {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.compare-head > div:last-child {
+  text-align: right;
+}
+
+.compare-cap {
+  margin: 0;
+  font-size: 12px;
+  color: var(--muted);
+  font-weight: 650;
+}
+
+.compare-big {
+  margin: 2px 0 0;
+  font-size: 21px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.compare-big.gold {
+  color: var(--gold);
+}
+
+.compare-swing {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.compare-swing.green,
+.compare-diff.green {
+  color: var(--green);
+}
+
+.compare-swing.red,
+.compare-diff.red {
+  color: var(--red);
+}
+
+.compare-swing.muted,
+.compare-diff.muted {
+  color: var(--muted);
+}
+
+.compare-row {
+  display: grid;
+  grid-template-columns: 1fr 62px 62px 54px;
+  align-items: baseline;
+  gap: 4px;
+  padding: 7px 0;
+  border-top: 1px solid var(--line);
+  font-size: 14px;
+}
+
+.compare-row:first-child {
+  border-top: 0;
+}
+
+.compare-row.head {
+  padding-bottom: 2px;
+  font-size: 11.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.compare-name {
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.compare-now,
+.compare-then,
+.compare-diff {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.compare-now {
+  font-weight: 750;
+}
+
+.compare-then {
+  color: var(--muted);
+  font-weight: 650;
+}
+
+.compare-diff {
+  font-size: 12.5px;
+  font-weight: 700;
+}

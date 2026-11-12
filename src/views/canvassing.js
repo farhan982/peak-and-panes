@@ -505,12 +505,51 @@ function renderActiveSession(root, session) {
       <button class="house-locate" id="house-locate" aria-label="Detect this address">${icon('navigate', 19)}</button>
     </div>
     ${addressHint ? `<p class="house-hint">${addressHint}</p>` : ''}
+    <div class="house-chips" id="house-chips" hidden></div>
   `;
   const addressInput = house.querySelector('#house-address');
+
+  // The numbers up the street, as bubbles under the field. Painted directly
+  // rather than through a re-render: the whole app redraws on state changes,
+  // and that would throw the keyboard away mid-address.
+  const chips = house.querySelector('#house-chips');
+  const paintChips = () => {
+    const doors = domain.sessionDoors(state.getState(), session.id);
+    // With the field cleared — you have just come back to the screen — the
+    // street you are on is still known from the doors behind you, so the
+    // numbers can be offered without a word being typed.
+    const text = addressInput.value.trim() || geo.currentStreet(doors);
+    const suggestions = geo.houseSuggestions(doors, text);
+    chips.innerHTML = '';
+    chips.hidden = !suggestions.length;
+    if (!suggestions.length) return;
+    const label = document.createElement('span');
+    label.className = 'house-chips-label';
+    label.textContent = 'Next';
+    chips.appendChild(label);
+    suggestions.forEach(({ number, address }) => {
+      const chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = 'house-chip';
+      chip.textContent = String(number);
+      chip.setAttribute('aria-label', address);
+      chip.addEventListener('click', () => {
+        addressInput.value = address;
+        currentAddress = address;
+        addressTouched = true;
+        addressInput.focus();
+        paintChips();
+      });
+      chips.appendChild(chip);
+    });
+  };
+
   addressInput.addEventListener('input', () => {
     currentAddress = addressInput.value;
     addressTouched = true;
+    paintChips();
   });
+  paintChips();
   house.querySelector('#house-locate').addEventListener('click', async () => {
     const btn = house.querySelector('#house-locate');
     btn.disabled = true;

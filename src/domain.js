@@ -411,14 +411,50 @@ export function formatPercent(fraction) {
   return `${Math.round((fraction || 0) * 100)}%`;
 }
 
+// The calendar day a date falls on, named if it is close enough to the one you
+// are standing in to have a name. Days either side of today are counted off
+// the calendar rather than by adding 24 hours, which would land on the wrong
+// day across a clock change.
+function dayOffset(days) {
+  const d = startOfDay(new Date());
+  d.setDate(d.getDate() + days);
+  return localDay(d);
+}
+
+export function dayWord(iso) {
+  if (!iso) return null;
+  const day = String(iso).slice(0, 10);
+  if (day === dayOffset(0)) return 'Today';
+  if (day === dayOffset(1)) return 'Tomorrow';
+  if (day === dayOffset(-1)) return 'Yesterday';
+  return null;
+}
+
 export function relativeDay(iso) {
   if (!iso) return '';
-  const day = iso.slice(0, 10);
-  const today = localDay();
-  const tomorrow = localDay(new Date(Date.now() + 86400000));
-  if (day === today) return 'Today';
-  if (day === tomorrow) return 'Tomorrow';
-  return formatDate(iso);
+  return dayWord(iso) || formatDate(iso);
+}
+
+// A stamp carries a time only if one was ever entered — a follow-up date has
+// no time of day, and 12:00 AM is not a time anybody booked.
+function hasTime(iso) {
+  return /T\d{2}:\d{2}/.test(String(iso));
+}
+
+export function formatTime(iso) {
+  if (!iso || !hasTime(iso)) return '';
+  return toLocalDate(iso).toLocaleTimeString('en-CA', { hour: 'numeric', minute: '2-digit' });
+}
+
+// What you want to read on a job you are about to drive to: the days around
+// today by name, anything further out by date. The time of day stays either
+// way, because that is the part you are actually turning up for.
+export function formatWhen(iso) {
+  if (!iso) return '';
+  const word = dayWord(iso);
+  if (!word) return formatDateTime(iso);
+  const time = formatTime(iso);
+  return time ? `${word} ${time}` : word;
 }
 
 // ---------------------------------------------------------------------------
@@ -995,18 +1031,60 @@ function collectedBetween(jobs, from, to) {
   return revenueBooked(jobs.filter((j) => j.paymentReceived && withinRange(j.completedAt, from, to)));
 }
 
-export function weekSummary(s, now = new Date()) {
+// Everything that happened in one stretch of time. Pulled out of the week
+// summary so the same figures can be worked out for last week and the two
+// stood side by side.
+export function rangeStats(s, from, to) {
+  const doors = s.doors.filter((d) => withinRange(d.at, from, to));
+  const quotes = s.quotes.filter((q) => withinRange(q.createdAt, from, to));
+  const booked = s.jobs.filter((j) => withinRange(j.createdAt, from, to));
+  const done = s.jobs.filter((j) => j.status === 'completed' && withinRange(j.completedAt, from, to));
+  return {
+    from,
+    to,
+    doors: doors.length,
+    quotes: quotes.length,
+    booked: booked.length,
+    bookedValue: revenueBooked(booked),
+    done: done.length,
+    doneJobs: done,
+    collected: collectedBetween(s.jobs, from, to),
+    averageJob: done.length ? revenueBooked(done) / done.length : 0,
+  };
+}
+
+// Four days of this week against seven of last week would make every Monday
+// look like a collapse, so the comparison runs to the same point in last week
+// — with last week's finished total kept alongside it, because that is the
+// number you remember.
+export function weekComparison(s, now = new Date()) {
   const weekStart = startOfWeek(now);
   const weekEnd = endOfToday(now);
   const lastWeekStart = new Date(weekStart.getTime() - 7 * MS_DAY);
+  const samePoint = new Date(weekEnd.getTime() - 7 * MS_DAY);
+  return {
+    weekStart,
+    lastWeekStart,
+    thisWeek: rangeStats(s, weekStart, weekEnd),
+    lastWeek: rangeStats(s, lastWeekStart, samePoint),
+    lastWeekFull: rangeStats(s, lastWeekStart, weekStart),
+    days: Math.max(1, daysBetween(weekStart, now) + 1),
+    // True once this week has run as far as last week did, i.e. on the Sunday.
+    complete: samePoint.getTime() >= weekStart.getTime(),
+  };
+}
 
-  const doors = s.doors.filter((d) => withinRange(d.at, weekStart, weekEnd));
-  const quotes = s.quotes.filter((q) => withinRange(q.createdAt, weekStart, weekEnd));
-  const booked = s.jobs.filter((j) => withinRange(j.createdAt, weekStart, weekEnd));
-  const done = s.jobs.filter((j) => j.status === 'completed' && withinRange(j.completedAt, weekStart, weekEnd));
+export function weekSummary(s, now = new Date()) {
+  const weekStart = startOfWeek(now);
+  const weekEnd = endOfToday(now);
 
-  const collected = collectedBetween(s.jobs, weekStart, weekEnd);
-  const lastWeek = collectedBetween(s.jobs, lastWeekStart, weekStart);
+  const stats = rangeStats(s, weekStart, weekEnd);
+  const done = stats.doneJobs;
+  const collected = stats.collected;
+  // Against the same point in last week, not against the whole of it — the
+  // tile and the comparison behind it have to tell the same story.
+  const compare = weekComparison(s, now);
+  const lastWeek = compare.lastWeek.collected;
 
   // Best territory and service are judged on work finished this week.
   const byTerritory = new Map();
@@ -1022,15 +1100,11 @@ export function weekSummary(s, now = new Date()) {
   const territory = topTerritoryId ? s.territories.find((t) => t.id === topTerritoryId[0]) : null;
 
   return {
+    ...stats,
     weekStart,
-    doors: doors.length,
-    quotes: quotes.length,
-    booked: booked.length,
-    done: done.length,
-    collected,
     lastWeek,
+    lastWeekFull: compare.lastWeekFull.collected,
     change: lastWeek ? (collected - lastWeek) / lastWeek : null,
-    averageJob: done.length ? revenueBooked(done) / done.length : 0,
     topTerritory: territory ? { name: territory.name, jobs: topTerritoryId[1] } : null,
     topService: topService ? { service: topService[0], amount: topService[1] } : null,
   };

@@ -10,6 +10,7 @@ import {
   openJobSheet,
   openQuoteSheet,
   openGoalModal,
+  openWeekCompareSheet,
 } from './modals.js';
 
 function greeting(now = new Date()) {
@@ -141,9 +142,11 @@ function buildNoGoalCard(s) {
   return card;
 }
 
-function metricCard(iconName, label, value, foot, footTone) {
+function metricCard(iconName, label, value, foot, footTone, tap) {
   return `
-    <div class="metric">
+    <div class="metric${tap ? ' tappable' : ''}"${
+      tap ? ` role="button" tabindex="0" data-tap="${tap}"` : ''
+    }>
       <span class="metric-icon">${icon(iconName, 21)}</span>
       <p class="metric-label">${label}</p>
       <p class="metric-value">${value}</p>
@@ -175,9 +178,10 @@ function buildMetrics(s, now) {
       'Revenue This Week',
       domain.formatCurrency(thisWeek),
       change === null
-        ? 'No figure for last week'
-        : `${change >= 0 ? '↑' : '↓'} ${domain.formatPercent(Math.abs(change))} vs last week`,
-      change === null ? '' : change >= 0 ? 'green' : 'red'
+        ? 'Compare with last week ›'
+        : `${change >= 0 ? '↑' : '↓'} ${domain.formatPercent(Math.abs(change))} vs last week ›`,
+      change === null ? '' : change >= 0 ? 'green' : 'red',
+      'week'
     ) +
     metricCard(
       'doc',
@@ -201,6 +205,17 @@ function buildMetrics(s, now) {
       bookedDone && bookedDone === bookedThisWeek.length ? 'green' : ''
     ) +
     metricCard('door', 'Doors Knocked', String(doorsThisWeek.length), `Today: ${doorsToday.length}`);
+
+  const tile = grid.querySelector('[data-tap="week"]');
+  if (tile) {
+    tile.addEventListener('click', openWeekCompareSheet);
+    tile.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        openWeekCompareSheet();
+      }
+    });
+  }
   return grid;
 }
 

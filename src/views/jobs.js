@@ -125,6 +125,9 @@ function renderJobList(page, which) {
   jobs.forEach((job) => {
     const customer = state.getCustomer(job.customerId);
     const done = job.status === 'completed';
+    // A date that has already gone past on a job still open is worth saying
+    // out loud — the row used to call it Scheduled either way.
+    const late = !done && job.scheduledAt && job.scheduledAt.slice(0, 10) < todayISO();
     // A job still to do gets a reschedule button beside it, which means the
     // row can no longer be one big button — a button inside a button is not
     // something a browser will lay out.
@@ -145,10 +148,10 @@ function renderJobList(page, which) {
       </div>
       <div class="row-right">
         <p class="row-amount">${domain.formatCurrency(job.amount)}</p>
-        <span class="pill ${done ? (job.paymentReceived ? 'green' : 'orange') : 'blue'}">${
-          done ? (job.paymentReceived ? 'Paid' : 'Unpaid') : 'Scheduled'
+        <span class="pill ${done ? (job.paymentReceived ? 'green' : 'orange') : late ? 'orange' : 'blue'}">${
+          done ? (job.paymentReceived ? 'Paid' : 'Unpaid') : late ? 'Overdue' : 'Scheduled'
         }</span>
-        <p class="row-sub">${job.scheduledAt ? domain.formatDateTime(job.scheduledAt) : 'Unscheduled'}</p>
+        <p class="row-sub">${job.scheduledAt ? domain.formatWhen(job.scheduledAt) : 'Unscheduled'}</p>
       </div>
     `;
     if (!done) {

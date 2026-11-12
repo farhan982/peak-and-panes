@@ -385,6 +385,40 @@ export function currentStreet(doors) {
 }
 
 const MAX_STEP = 20;
+const DEFAULT_STEP = 2; // the usual same-side-of-the-road increment
+
+// How far apart the houses on this street have actually been. The gap walked
+// most often wins rather than the last one, because a single skipped house —
+// nobody home two doors down, a number that does not exist — should not
+// redefine the street for everything that follows. A tie goes to the shorter
+// step, and failing that to the most recent, which is the way you are walking
+// now.
+function streetStep(numbers) {
+  const gaps = [];
+  for (let i = 1; i < numbers.length; i++) {
+    const delta = numbers[i] - numbers[i - 1];
+    if (delta !== 0 && Math.abs(delta) <= MAX_STEP) gaps.push(delta);
+  }
+  if (!gaps.length) return DEFAULT_STEP;
+  const last = gaps[gaps.length - 1];
+  const counts = new Map();
+  gaps.forEach((gap) => counts.set(gap, (counts.get(gap) || 0) + 1));
+  const ranked = [...counts.entries()].sort(
+    (a, b) =>
+      b[1] - a[1] ||
+      Math.abs(a[0]) - Math.abs(b[0]) ||
+      (a[0] === last ? -1 : b[0] === last ? 1 : 0)
+  );
+  return ranked[0][0];
+}
+
+// The numbers logged on a given street, oldest first.
+function numbersOnStreet(doors, street) {
+  return doors
+    .map((d) => parseAddress(d.address))
+    .filter((p) => p && p.number && sameStreet(p.street, street))
+    .map((p) => p.number);
+}
 
 // Predicts the next house from the run already logged on the current street.
 // Returns null rather than guessing wildly when there is nothing to go on.
@@ -392,21 +426,55 @@ export function predictNextAddress(doors) {
   const street = currentStreet(doors);
   if (!street) return null;
 
-  const numbers = doors
-    .map((d) => parseAddress(d.address))
-    .filter((p) => p && p.number && sameStreet(p.street, street))
-    .map((p) => p.number);
+  const numbers = numbersOnStreet(doors, street);
   if (!numbers.length) return null;
 
   const last = numbers[numbers.length - 1];
-  let step = 2; // the usual same-side-of-the-road increment
-  if (numbers.length >= 2) {
-    const delta = last - numbers[numbers.length - 2];
-    if (delta !== 0 && Math.abs(delta) <= MAX_STEP) step = delta;
-  }
+  const step = streetStep(numbers);
   const next = last + step;
   if (next <= 0) return null;
   return { address: formatAddress(next, street), street, step, from: last };
+}
+
+// Houses get skipped. A number does not exist, a duplex shares one, a gate is
+// locked, or you cross the road — so one prediction is not enough to save any
+// typing. These are the numbers worth offering beside the field: the run ahead
+// in the direction you are already walking, and the house across the road.
+// Anything already logged on this street in this session is dropped, since
+// that is a door you have knocked.
+const SUGGEST_LIMIT = 5;
+
+export function houseSuggestions(doors, text, { limit = SUGGEST_LIMIT } = {}) {
+  const parsed = parseAddress(text);
+  if (!parsed || !parsed.street) return [];
+  const street = parsed.street;
+  // One letter is somebody mid-way through typing a street name, not a street.
+  if (normaliseStreet(street).length < 2) return [];
+
+  const knocked = numbersOnStreet(doors, street);
+  const step = streetStep(knocked);
+
+  const base = parsed.number || knocked[knocked.length - 1] || null;
+  if (!base) return [];
+
+  const candidates = [
+    base + step,
+    base + step * 2,
+    base + step * 3,
+    base + step * 4,
+    // Across the road, which is the way the numbering flips: ahead of you if
+    // you are walking up, behind you if you are walking down.
+    base + (step > 0 ? 1 : -1),
+  ];
+
+  const taken = new Set([base, ...knocked]);
+  const out = [];
+  candidates.forEach((number) => {
+    if (number <= 0 || taken.has(number) || out.length >= limit) return;
+    taken.add(number);
+    out.push({ number, address: formatAddress(number, street) });
+  });
+  return out;
 }
 
 // Address-level lookups need a much finer cache cell than area labels: ~11m

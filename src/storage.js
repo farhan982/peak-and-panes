@@ -181,7 +181,7 @@ const DEFAULT_SETTINGS = {
   // Off until it is turned on, so nothing about the money on screen changes
   // under anybody who has not said they are registered. `chargingFrom` empty
   // means prices still have the tax inside them.
-  hst: { registered: false, rate: 13, chargingFrom: '' },
+  hst: { registered: false, rate: 13, registeredFrom: '', chargingFrom: '' },
 };
 
 export function newGoal({ amount, weeklyTarget, startDate, endDate }) {

@@ -620,7 +620,15 @@ share is inside it whatever was said at the door. So:
   pre-tax price, which is the right number to compare against a goal, and the
   customer pays more than it says.
 
-The changeover is a **date**, not a flag: `chargingFrom`. Work finished before
+Two dates matter, and they are different things. `registeredFrom` is when the
+obligation started — work finished before it owes nothing, because
+registration is not backdated, and without it the set-aside quietly counts a
+whole year of work that was never anybody's to tax. The $30,000 small-supplier
+threshold decides whether you *have* to register; it has no bearing on what is
+owed once you are, so it appears nowhere in this code.
+
+The changeover to charging on top is also a **date**, not a flag:
+`chargingFrom`. Work finished before
 it is tax-included, work finished on or after it has tax on top. A single
 boolean would have rewritten everything already charged the moment the switch
 was flipped, which is the one thing this must not do. Nothing is stored on the

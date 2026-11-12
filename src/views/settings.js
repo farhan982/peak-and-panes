@@ -269,6 +269,10 @@ function buildHstCard(settings) {
 
   const onTop = Boolean(hst.chargingFrom);
   rest.innerHTML = `
+    <div class="field"><label>Registered since</label>
+      <input type="date" id="hst-since" value="${esc(hst.registeredFrom)}" /></div>
+    <p class="card-sub" style="margin:-6px 0 14px">Work finished before this owes
+      nothing — registration is not backdated. Leave it empty to count everything.</p>
     <p class="card-sub" style="margin:4px 0 8px">How your prices are quoted</p>
     <div class="chip-row" id="hst-mode"></div>
     ${
@@ -302,6 +306,11 @@ function buildHstCard(settings) {
         hst: { ...hst, chargingFrom: value === 'ontop' ? todayISO() : '' },
       })
   );
+
+  const since = rest.querySelector('#hst-since');
+  since.addEventListener('change', () => {
+    if (since.value !== hst.registeredFrom) state.updateSettings({ hst: { ...hst, registeredFrom: since.value } });
+  });
 
   const from = rest.querySelector('#hst-from');
   if (from) {

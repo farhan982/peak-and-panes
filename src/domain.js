@@ -1123,9 +1123,22 @@ export function hstSettings(settings) {
   return {
     registered: Boolean(hst.registered),
     rate: typeof hst.rate === 'number' && hst.rate >= 0 ? hst.rate : DEFAULT_HST_RATE,
+    // The day the obligation started. Work finished before it owes nothing,
+    // because there was nothing to owe it to. Empty means all of it counts.
+    registeredFrom: hst.registeredFrom || '',
     // A day. Empty means prices are still quoted with the tax inside them.
     chargingFrom: hst.chargingFrom || '',
   };
+}
+
+// Registration is not retroactive: a job finished the week before the number
+// came through is not a job with tax in it. Without this the set-aside counts
+// a whole year of work that was never anybody's to tax.
+export function taxApplies(iso, settings) {
+  const hst = hstSettings(settings);
+  if (!hst.registered) return false;
+  if (!hst.registeredFrom) return true;
+  return String(iso || localDay()).slice(0, 10) >= hst.registeredFrom;
 }
 
 // Once registered, a price with no tax named on it is a tax-INCLUDED price —
@@ -1145,7 +1158,7 @@ export function taxBreakdown(amount, iso, settings) {
   const hst = hstSettings(settings);
   const value = amount || 0;
   const base = { registered: hst.registered, rate: hst.rate, onTop: false, tax: 0, net: value, total: value };
-  if (!hst.registered || !value) return base;
+  if (!value || !taxApplies(iso, settings)) return base;
 
   const rate = hst.rate / 100;
   if (taxOnTop(iso, settings)) {

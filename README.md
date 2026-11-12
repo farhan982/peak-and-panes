@@ -506,7 +506,7 @@ lowering a target can put an already-collected sum over the line.
 ## What is not built yet
 
 - Photos, review and referral prompts on job completion. Editing or deleting a
-  territory. Map view, seasonal reminders, expenses.
+  territory. Expenses, and anything that knows about HST.
 
 ## Structure
 
